@@ -3,6 +3,8 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
+import json
+
 import logging
 from datetime import datetime
 
@@ -148,6 +150,8 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--winstep', type=float, default=0.01,
                         help='the window step parameter for extracting features with logfbank (which determines how much the windows from which features are extracted overlap)')
 
+    parser.add_argument('-c', '--config_file', type=str,
+                        help='a json file containing all the information to train a model, except training directory, model name and output directory')
 
     parser.add_argument('-t', '--test_dir', default='', 
                         help='the directory with the test data, if testing is wanted')
@@ -169,10 +173,30 @@ if __name__ == '__main__':
 
     logging.info("_______\ntrain_mat.py {}\n__________\n".format(args))
 
+    model_file_name = ''
+    
+    if not args.config_file :
+        ## save parameters and information to json file, to be used when testing using a pretrained model
+        model_file_name = f'{args.out_dir}/{args.model_name}.h5'
 
+        config_file = f'{args.out_dir}/{args.model_name}.json'
+        config_info = dict()
+        config_info['model'] = model_file_name
+        config_info['logfile'] = logfile
+        for arg in vars(args):
+            config_info[arg] = getattr(args, arg)
+            
+        with open(config_file, "w") as json_file:
+            json.dump(config_info, json_file)
+    else:
+        with open(args.config_file, "r") as json_file:
+            config_info = json.load(json_file)
+        model_file_name = config_info['model']
+    
+    
     (data_train, nfilt, _) = voxseg.utils.load_mat_data(args.train_dir, "train")
-    if args.validation_dir:
-        (data_dev, _, _) = voxseg.utils.load_mat_data(args.validation_dir, "dev")
+    if config_info['validation_dir']:
+        (data_dev, _, _) = voxseg.utils.load_mat_data(config_info['validation_dir'], "dev")
         
     params = {"frame_length": args.frame_length, "nfilt": nfilt, "winlen": args.winlen, "winstep": args.winstep}
 
@@ -181,7 +205,7 @@ if __name__ == '__main__':
     feats_train = voxseg.extract_feats.extract_from_mat(data_train, params)
     feats_train = voxseg.extract_feats.normalize(feats_train)
     
-    if args.validation_dir:
+    if config_info['validation_dir']:
         feats_dev = voxseg.extract_feats.extract_from_mat(data_dev, params)
         feats_dev = voxseg.extract_feats.normalize(feats_dev)
 
@@ -193,20 +217,19 @@ if __name__ == '__main__':
         labels_dev['labels'] = voxseg.prep_labels.one_hot(labels_dev['labels'])
 
 
-    seq_len = args.frame_length * 2
+    seq_len = config_info['frame_length'] * 2
 
     # Train model
     X = voxseg.utils.time_distribute(np.vstack(feats_train['normalized-features']), seq_len)
     y = voxseg.utils.time_distribute(np.vstack(labels_train['labels']), seq_len)
-    if args.validation_dir:
+    if config_info['validation_dir']:
         X_dev = voxseg.utils.time_distribute(np.vstack(feats_dev['normalized-features']), seq_len)
         y_dev = voxseg.utils.time_distribute(np.vstack(labels_dev['labels']), seq_len)
     else:
         X_dev = None
         y_dev = None
                 
-    #args.model_name
-    checkpoint = ModelCheckpoint(filepath=f'{args.out_dir}/{args.model_name}.h5',
+    checkpoint = ModelCheckpoint(filepath=model_file_name,
                                  save_weights_only=False,
                                  #monitor='val_loss', 
                                  #mode='min', 
@@ -220,7 +243,7 @@ if __name__ == '__main__':
     
     if y.shape[-1] == 2 or y.shape[-1] == 4:
         #hist = train_model(cnn_bilstm(y.shape[-1], args.frame_length, nfilt), X, y, args.validation_split, X_dev, y_dev, callbacks=[checkpoint])
-        hist = train_model(voxseg_model.model, X, y, args.validation_split, X_dev, y_dev, callbacks=[checkpoint])
+        hist = train_model(voxseg_model.model, X, y, config_info['validation_split'], X_dev, y_dev, callbacks=[checkpoint])
 
         df = pd.DataFrame(hist.history)
         df.index.name = 'epoch'
@@ -229,6 +252,6 @@ if __name__ == '__main__':
         print(f'ERROR: Number of classes {y.shape[-1]} is not equal to 2 or 4, see README for more info on using this training script.')
         
     
-    if args.test_dir != '':
-        test_model(voxseg_model.model, args.test_dir, params, speech_thresh=0.2)
+    if config_info['test_dir'] != '':
+        test_model(voxseg_model.model, config_info['test_dir'], params, speech_thresh=0.5)
             
