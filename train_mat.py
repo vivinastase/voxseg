@@ -166,6 +166,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
+    os.makedirs(args.out_dir, exist_ok=True)
+    
     timestamp = datetime.now().strftime("%d-%b-%Y_%H:%M")
     logfile = args.out_dir + "/" + args.model_name + "__train_mat__" + timestamp + ".log"
     logging.basicConfig(filename=logfile, filemode='w', level=logging.DEBUG)  
