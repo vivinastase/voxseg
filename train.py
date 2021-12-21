@@ -103,10 +103,8 @@ def train_model(model, x_train, y_train, validation_split, x_dev=None, y_dev=Non
 
 
 #    winlen = 0.01  ##0.004 ## for the "resolution" of the evaluation
-def test_model(model, data_dir, eval_dir, params, speech_thresh = 0.5, speech_w_music_thresh = 0.5, filt = 1, res = 0.01):
-    
-    out_dir = data_dir.rstrip('/') + '.predictions/'
-    
+def test_model(model, data_dir, out_dir, eval_dir, params, speech_thresh = 0.5, speech_w_music_thresh = 0.5, filt = 1, res = 0.01):
+        
     (rate, data) = voxseg.extract_feats.prep_data(data_dir, mode="test")
     feats = voxseg.extract_feats.extract(data, params, rate)
     feats = voxseg.utils.resegment(feats, rate)  ## because when processing an entire file, we may get an OOM error at prediction time 
