@@ -100,19 +100,19 @@ There are a number of additional parameters that must be specified for each step
 
 To run the full VAD pipeline -- train, test -- use the following command in the top level of the code repository (voxseg):
 ```
-python3.8 train.py [params] train_data_directory 
+python3.8 train.py [params] train_data_directory model_name out_dir
 ```
 
 or 
 
 ```
-python3.8 train_mat.py [params] train_data_directory model_name out_dir
+python3.8 train_mat.py [params] [train_data_directory] [model_name] [out_dir]
 ```
 
 for mat files (of particular format ...).
 
 
-An example for running on the shipibo data:
+A more detailed example:
 
 ```
 python3.8 train.py -s 0.1 -n 128 -f 32 -t [test_directory] -e [eval_directory] [train_directory] [model_name] [output_directory]
@@ -134,20 +134,20 @@ python3.8 train.py -h
 
 * positional arguments:
 
-**  train_dir             a path to a Kaldi-style data directory containting 'wav.scp', 'utt2spk' and 'segments'
-**  model_name            a filename for the model, the model will be saved as <model_name>.h5 in the output directory
-**  out_dir               a path to an output directory where the model will be saved as <model_name>.h5, and where the log of the training will be saved as well
+  *  train_dir             a path to a Kaldi-style data directory containting 'wav.scp', 'utt2spk' and 'segments'
+  *  model_name            a filename for the model, the model will be saved as <model_name>.h5 in the output directory
+  *  out_dir               a path to an output directory where the model will be saved as <model_name>.h5, and where the log of the training will be saved as well
 
-*optional arguments:
+* optional arguments:
 
-** -v VALIDATION_DIR, --validation_dir VALIDATION_DIR: a path to a Kaldi-style data directory containting 'wav.scp', 'utt2spk' and 'segments'
-** -s VALIDATION_SPLIT, --validation_split VALIDATION_SPLIT: a percetage of the training data to be used as a validation set, if an explicit validation set is not defined using -v
-** -f FRAME_LENGTH, --frame_length FRAME_LENGTH: the frame length to consider (originally was defaulted to 0.32 -- smaller values have an impact on the CNN architecture -- the information gets compressed quickly and it cannot pass through 3 layers
-** -n NFILT, --nfilt NFILT: the number of filters to extract from the signal data -- will be one of the dimensions of the input to the CNN (nfilt x frame-length (as array length))
-** -l WINLEN, --winlen WINLEN: the window length parameter for extracting features from the signal data with logfbank
-** -w WINSTEP, --winstep WINSTEP: the window step parameter for extracting features with logfbank (which determines how much the windows from which features are extracted overlap)
-** -t TEST_DIR, --test_dir TEST_DIR: the directory with the test data, if wanted: this will be the data for which automatic annotations will be made. It is not used for evaluating the goodness of the model!
-** -e EVAL_DIR, --eval_dir EVAL_DIR: the directory with the evaluation data, if evaluation is wanted. It could be the same as the test_dir, if that directory contains gold-standard annotations
+  * -v VALIDATION_DIR, --validation_dir VALIDATION_DIR: a path to a Kaldi-style data directory containting 'wav.scp', 'utt2spk' and 'segments'
+  * -s VALIDATION_SPLIT, --validation_split VALIDATION_SPLIT: a percetage of the training data to be used as a validation set, if an explicit validation set is not defined using -v
+  * -f FRAME_LENGTH, --frame_length FRAME_LENGTH: the frame length to consider (originally was defaulted to 0.32 -- smaller values have an impact on the CNN architecture -- the information gets compressed quickly and it cannot pass through 3 layers
+  * -n NFILT, --nfilt NFILT: the number of filters to extract from the signal data -- will be one of the dimensions of the input to the CNN (nfilt x frame-length (as array length))
+  * -l WINLEN, --winlen WINLEN: the window length parameter for extracting features from the signal data with logfbank
+  * -w WINSTEP, --winstep WINSTEP: the window step parameter for extracting features with logfbank (which determines how much the windows from which features are extracted overlap)
+  * -t TEST_DIR, --test_dir TEST_DIR: the directory with the test data, if wanted: this will be the data for which automatic annotations will be made. It is not used for evaluating the goodness of the model!
+  * -e EVAL_DIR, --eval_dir EVAL_DIR: the directory with the evaluation data, if evaluation is wanted. It could be the same as the test_dir, if that directory contains gold-standard annotations
 
 
 ### Run an existing model on new data
@@ -174,30 +174,34 @@ python3.8 voxseg/main.py -h
 ```
 
 * positional arguments:
-**  data_dir              the test directory: a path to a Kaldi-style data directory containting 'wav.scp', and optionally 'segments'
-**  out_dir               the predictions directory: a path to an output directory where the output segments will be saved
+  *  data_dir              the test directory: a path to a Kaldi-style data directory containting 'wav.scp', and optionally 'segments'
+  *  out_dir               the predictions directory: a path to an output directory where the output segments will be saved
 
 * optional arguments:
-**  -h, --help            show this help message and exit
-**  -c CONFIG_FILE, --config_file CONFIG_FILE
+  *  -h, --help            show this help message and exit
+  *  -c CONFIG_FILE, --config_file CONFIG_FILE
                         a path to a json file containing all the information about the pretrained model (including parameters). If
                         this option is provided, there is no need to specify the parameters listed below (safer to do that, so the
                         correct parameter values are used).
                         
   If the config file is provided, the next 5 arguments are not necessary (actually, should not be provided, because the frame length, nfilt, winlen and winstep parameters are linked to the trained model)
 
-**  -M MODEL_PATH, --model_path MODEL_PATH: a path to a trained vad model saved as in .h5 format, overrides default pretrained model
-**  -f FRAME_LENGTH, --frame_length FRAME_LENGTH: the frame length to consider (originally was defaulted to 0.32 -- smaller values have an impact on the CNN architecture -- the information gets compressed quickly and it cannot pass through 3 layers
-**  -n NFILT, --nfilt NFILT: the number of filters to extract from the signal data -- will be one of the dimensions of the input to the CNN (nfilt x frame-length (as array length))
-**  -l WINLEN, --winlen WINLEN: the window length parameter for extracting features from the signal data with logfbank
-**  -w WINSTEP, --winstep WINSTEP: the window step parameter for extracting features with logfbank (which determines how much the windows from which features are extracted overlap)
-**  -t SPEECH_THRESH, --speech_thresh SPEECH_THRESH: a decision threshold value between (0,1) for speech vs non-speech, defaults to 0.5
-**  -m SPEECH_W_MUSIC_THRESH, --speech_w_music_thresh SPEECH_W_MUSIC_THRESH: a decision threshold value between (0,1) for speech_with_music vs non-speech, defaults to 0.5, increasing will remove more speech_with_music, useful for downsteam ASR
-**  -k MEDIAN_FILTER_KERNEL, --median_filter_kernel MEDIAN_FILTER_KERNEL: a kernel size for a median filter to smooth the output labels, defaults to 1 (no smoothing)
-**  -r EVAL_RES, --eval_res EVAL_RES: the resolution (time interval) of the evaluation. Suggested values: for human speech 0.01, for animal calls 0.004
+  *  -M MODEL_PATH, --model_path MODEL_PATH: a path to a trained vad model saved as in .h5 format, overrides default pretrained model
+  *  -f FRAME_LENGTH, --frame_length FRAME_LENGTH: the frame length to consider (originally was defaulted to 0.32 -- smaller values have an impact on the CNN architecture -- the information gets compressed quickly and it cannot pass through 3 layers
+  *  -n NFILT, --nfilt NFILT: the number of filters to extract from the signal data -- will be one of the dimensions of the input to the CNN (nfilt x frame-length (as array length))
+  *  -l WINLEN, --winlen WINLEN: the window length parameter for extracting features from the signal data with logfbank
+  *  -w WINSTEP, --winstep WINSTEP: the window step parameter for extracting features with logfbank (which determines how much the windows from which features are extracted overlap)
+
+The next 3 parameters are for the classification:
+  *  -t SPEECH_THRESH, --speech_thresh SPEECH_THRESH: a decision threshold value between (0,1) for speech vs non-speech, defaults to 0.5
+  *  -m SPEECH_W_MUSIC_THRESH, --speech_w_music_thresh SPEECH_W_MUSIC_THRESH: a decision threshold value between (0,1) for speech_with_music vs non-speech, defaults to 0.5, increasing will remove more speech_with_music, useful for downsteam ASR
+  *  -k MEDIAN_FILTER_KERNEL, --median_filter_kernel MEDIAN_FILTER_KERNEL: a kernel size for a median filter to smooth the output labels, defaults to 1 (no smoothing)
+  
+Resolution for the evaluation:  
+  *  -r EVAL_RES, --eval_res EVAL_RES: the resolution (time interval) of the evaluation. Suggested values: for human speech 0.01, for animal calls 0.004
                         
 Argument necessary only if evaluation is wanted.
-** -e EVAL_DIR, --eval_dir EVAL_DIR: a path to a Kaldi-style data directory containing the ground truth VAD segments for evaluation
+  * -e EVAL_DIR, --eval_dir EVAL_DIR: a path to a Kaldi-style data directory containing the ground truth VAD segments for evaluation
 
 
 ## License
