@@ -81,6 +81,11 @@ if __name__ == '__main__':
     if args.config_file is not None:
         with open(args.config_file, "r") as json_file:
             config_info = json.load(json_file)
+            
+        # mat files don't use this parameters, so add it just for consistency
+        if "nfilt" not in config_info.keys():
+            config_info["nfilt"] = 128
+
         params = {"frame_length": config_info["frame_length"], "nfilt": config_info["nfilt"], "winlen": config_info["winlen"], "winstep": config_info["winstep"]}
         model_name = os.path.splitext(config_info["model"])[0]
     else:
@@ -104,7 +109,7 @@ if __name__ == '__main__':
     logging.info("_______\nmain.py {}\n__________\n".format(args))
 
     if utils.test_file_type(args.data_dir) == "mat":
-        train_mat.test_model(model, args.data_dir, args.out_dir, params, speech_thresh=args.speech_thresh, res=args.eval_res)
+        train_mat.test_model(model, args.data_dir, args.out_dir, params, speech_thresh=args.speech_thresh)
     else:
         train.test_model(model, args.data_dir, args.out_dir, args.eval_dir, params, speech_thresh=args.speech_thresh, speech_w_music_thresh=args.speech_w_music_thresh, filt=args.median_filter_kernel, res=args.eval_res)
     
