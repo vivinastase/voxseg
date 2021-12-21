@@ -103,13 +103,12 @@ def train_model(model, x_train, y_train, validation_split, x_dev=None, y_dev=Non
 
 
 
-def test_model(model, data_dir, params, speech_thresh=0.5, speech_w_music_thresh=0.5, filt=1):
+def test_model(model, data_dir, out_dir, params, speech_thresh=0.5, speech_w_music_thresh=0.5, filt=1):
     
     logging.info("testing model\nparams: {}".format(locals()))
     
-    out_dir = data_dir.rstrip('/') + '.predictions/'
     eval_dir = data_dir
-
+    
     (data_test, _nfilt, n_columns) = voxseg.utils.load_mat_data(eval_dir, "test")
     (data_eval, _nfilt, n_columns) = voxseg.utils.load_mat_data(eval_dir, "eval")
 
@@ -253,5 +252,6 @@ if __name__ == '__main__':
         
     
     if config_info['test_dir'] != '':
-        test_model(voxseg_model.model, config_info['test_dir'], params, speech_thresh=0.5)
+        pred_dir = config_info['test_dir'].rstrip('/') + '.predictions/'
+        test_model(voxseg_model.model, config_info['test_dir'], pred_dir, params, speech_thresh=0.5)
             
