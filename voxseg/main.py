@@ -61,6 +61,8 @@ if __name__ == '__main__':
                        increasing will remove more speech_with_music, useful for downsteam ASR')
     parser.add_argument('-k', '--median_filter_kernel', type=int, default=1, 
                        help='a kernel size for a median filter to smooth the output labels, defaults to 1 (no smoothing)')
+    parser.add_argument('-r', '--eval_res', default=0.01,
+                         help="the resolution (time interval) of the evaluation. Suggested values: for human speech 0.01, for animal calls 0.004")
             
     ## evaluation information 
     parser.add_argument('-e', '--eval_dir', type=str,
@@ -101,8 +103,8 @@ if __name__ == '__main__':
     logging.info("_______\nmain.py {}\n__________\n".format(args))
 
     if utils.test_file_type(args.data_dir) == "mat":
-        train_mat.test_model(model, args.data_dir, args.out_dir, params, args.speech_thresh)
+        train_mat.test_model(model, args.data_dir, args.out_dir, params, speech_thresh=args.speech_thresh, res=args.eval_res)
     else:
-        train.test_model(model, args.data_dir, args.out_dir, args.eval_dir, params, args.speech_thresh, args.speech_w_music_thresh, args.filt)
+        train.test_model(model, args.data_dir, args.out_dir, args.eval_dir, params, speech_thresh=args.speech_thresh, speech_w_music_thresh=args.speech_w_music_thresh, filt=args.medial_filter_kernel, res=args.eval_res)
     
 
