@@ -14,7 +14,8 @@ from tensorflow.keras import models
 from voxseg import extract_feats, run_cnnlstm, utils, evaluate
 
 import sys
-sys.path.append("../voxseg/")
+## this may need to be edited, depending on the directory of the installation
+sys.path.append("../voxseg-master/")
 
 import train_mat
 import train
