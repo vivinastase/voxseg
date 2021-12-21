@@ -193,8 +193,8 @@ if __name__ == '__main__':
 
         config_file = f'{args.out_dir}/{args.model_name}.json'
         config_info = dict()
-        config_info["model"] = model_file_name
-        config_info["logfile"] = logfile
+        config_info['model'] = model_file_name
+        config_info['logfile'] = logfile
         for arg in vars(args):
             config_info[arg] = getattr(args, arg)
             
@@ -203,19 +203,19 @@ if __name__ == '__main__':
     else:
         with open(args.config_file, "r") as json_file:
             config_info = json.load(json_file)
-        model_file_name = config_info["model"]
+        model_file_name = config_info['model']
 
     # Fetch data
     (rate_train, data_train) = voxseg.prep_labels.prep_data(args.train_dir)
-    if args.validation_dir:
-        (rate_dev, data_dev) = voxseg.prep_labels.prep_data(config_info["validation_dir"])
+    if config_info['validation_dir']:
+        (rate_dev, data_dev) = voxseg.prep_labels.prep_data(config_info['validation_dir'])
 
     # Extract features
     feats_train = voxseg.extract_feats.extract(data_train, params, rate_train)
     feats_train = voxseg.extract_feats.normalize(feats_train)
     voxseg.utils.print_feature_stats(feats_train,"Train")
     
-    if config_info["validation_dir"]:
+    if config_info['validation_dir']:
         feats_dev = voxseg.extract_feats.extract(data_dev, params, rate_dev)
         feats_dev = voxseg.extract_feats.normalize(feats_dev)
         voxseg.utils.print_feature_stats(feats_dev,"Dev")
