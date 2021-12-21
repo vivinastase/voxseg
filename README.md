@@ -192,15 +192,18 @@ python3.8 voxseg/main.py -h
   *  -l WINLEN, --winlen WINLEN: the window length parameter for extracting features from the signal data with logfbank
   *  -w WINSTEP, --winstep WINSTEP: the window step parameter for extracting features with logfbank (which determines how much the windows from which features are extracted overlap)
 
-The next 3 parameters are for the classification:
+These 3 parameters are for the classification
+
   *  -t SPEECH_THRESH, --speech_thresh SPEECH_THRESH: a decision threshold value between (0,1) for speech vs non-speech, defaults to 0.5
   *  -m SPEECH_W_MUSIC_THRESH, --speech_w_music_thresh SPEECH_W_MUSIC_THRESH: a decision threshold value between (0,1) for speech_with_music vs non-speech, defaults to 0.5, increasing will remove more speech_with_music, useful for downsteam ASR
   *  -k MEDIAN_FILTER_KERNEL, --median_filter_kernel MEDIAN_FILTER_KERNEL: a kernel size for a median filter to smooth the output labels, defaults to 1 (no smoothing)
   
-Resolution for the evaluation:  
+Resolution for the evaluation
+
   *  -r EVAL_RES, --eval_res EVAL_RES: the resolution (time interval) of the evaluation. Suggested values: for human speech 0.01, for animal calls 0.004
                         
 Argument necessary only if evaluation is wanted.
+
   * -e EVAL_DIR, --eval_dir EVAL_DIR: a path to a Kaldi-style data directory containing the ground truth VAD segments for evaluation
 
 
