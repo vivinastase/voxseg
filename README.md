@@ -4,11 +4,11 @@ This is a parameterized version of Voxseg, whose original version is here:
 
 https://github.com/NickWilkinson37/voxseg.git
 
-Voxseg is a Python package for voice activity detection (VAD), for speech/non-speech audio segmentation. It provides a full VAD pipeline, including a pretrained VAD model, and it is based on work presented [here](https://arxiv.org/abs/2103.03529).
+Voxseg is a Python package for voice activity detection (VAD), for speech/non-speech audio segmentation, and it is based on work presented [here](https://arxiv.org/abs/2103.03529).
 
 ## Installation
 
-These are the installation instructions from the original, hopefully they still work:
+These are the installation instructions from the original, they should work for this version as well:
 
 To install this package, clone the repository from GitHub to a directory of your choice and install using pip:
 ```bash
@@ -115,11 +115,15 @@ for mat files (of particular format ...).
 An example for running on the shipibo data:
 
 ```
-python3.8 train.py -s 0.1 -n 128 -f 32 -t ~/Data/Segmentation/voxseg/shipibo_jaico_lena/ -e ~/Data/Segmentation/voxseg/shipibo_cam.jaico/ ~/Data/Segmentation/voxseg/shipibo_cam.johani/ shipibo_johani ../models/
+python3.8 train.py -s 0.1 -n 128 -f 32 -t [test_directory] -e [eval_directory] [train_directory] [model_name] [output_directory]
 ```
 
-This would train a model on the shipibo_cam.johani data, write the model into the ../models/shipibo_johani.h5 file.
-It would evaluate the performance on the shipibo_cam.jaico data, and predict annotations for the shipibo_jaico_lena data (that directory contains the *_lena_uncut.wav file)
+This would train a model on the data in the train_directory, write the model into the [output_directory]/[model_name].h5 file.
+It saves all the information, including trained model and its parameters, into a json file named: [outdir]/[model_name].json
+(When testing a pretrained model, provide this config file as a parameter.)
+
+It would evaluate the performance on the data in the eval_directory, and predict annotations for the test data.
+
 It will build an input to the CNN consisting of 32 (frame length) vectors of dimension 128 (nfilt). 128 is the numbe rof filters used by logfbank. The length of the segment of the signal at which it looks to build this representation is computed based on the frame length, and the winlen and winstep parameters (default values 0.025 and 0.01 for human speech, but they can be explicitly given)
 It uses 0.1 of the training data as development (validation) data.
 
@@ -148,15 +152,53 @@ python3.8 train.py -h
 
 ### Run an existing model on new data
 
-(This used to be the script for running the entire pipeline, but somehow I do that with the train script, and this is left for applying an already built model
+(This used to be the script for running the entire pipeline, but somehow I do that with the train script, and this is left for applying an already built model)
 
+Run a model using a config file for a pretrained model:
 ```
-python3.8 voxseg/main.py -n 128 -f 32 -s 0.2 -M ../models/shipibo_jaico.h5 -e ~/Data/Segmentation/voxseg/shipibo_cam.johani.train/ ~/Data/Segmentation/voxseg/shipibo_cam.johani.test/ ~/Data/Segmentation/voxseg/shipibo_cam.johani.test.predictions/
+python3.8 voxseg/main.py -c [config_file (.json)] -e [eval_directory]  [test_directory] [predictions_directory]
 ```
 
-This will load the model from ../models/shipibo_jaico.h5, and produce automatic annotations on the shipibo_cam.johani data, and write the predictions to shipibo_cam.johani.predictions.
-It evaluates the model on the shipibo_johani_lena_vad data (produced with unsupervised methods), but it could/should use the manually annotated data (on the same file as the predictions! you cannot combine different evaluation and test files). 
-The parameters used to generate the model must be specified again (I will fix this): the frame length, number of filters, winlen, winstep (for generating the representation), and it uses a threshold of 0.2 to determine whether something is or is not speech.  
+Run a model by explicitly providing the model to use and parameters (the parameters must be the same as for training the model):
+```
+python3.8 voxseg/main.py -n 128 -f 32 -t 0.2 -M [model (.h5)] -e [eval_directory] [test_directory] [predictions_directory]
+```
+
+This will load the model from the given model file (...h5), and produce automatic annotations on the data in the test_directory, and write the predictions to the predictions_directory. The classification threshold is 0.2, and the model will build features of size 128 for a frame length of 32.
+
+The evaluation and test data must be the same, but the evaluation directory should contain the same information as a train data (i.e. segments, utt2spk), while the test data must contain only wav.scp, so it knows what files to process. 
+
+To explore the available flags for changing settings call for either train.py or train_mat.py:
+```
+python3.8 voxseg/main.py -h
+```
+
+* positional arguments:
+**  data_dir              the test directory: a path to a Kaldi-style data directory containting 'wav.scp', and optionally 'segments'
+**  out_dir               the predictions directory: a path to an output directory where the output segments will be saved
+
+* optional arguments:
+**  -h, --help            show this help message and exit
+**  -c CONFIG_FILE, --config_file CONFIG_FILE
+                        a path to a json file containing all the information about the pretrained model (including parameters). If
+                        this option is provided, there is no need to specify the parameters listed below (safer to do that, so the
+                        correct parameter values are used).
+                        
+  If the config file is provided, the next 5 arguments are not necessary (actually, should not be provided, because the frame length, nfilt, winlen and winstep parameters are linked to the trained model)
+
+**  -M MODEL_PATH, --model_path MODEL_PATH: a path to a trained vad model saved as in .h5 format, overrides default pretrained model
+**  -f FRAME_LENGTH, --frame_length FRAME_LENGTH: the frame length to consider (originally was defaulted to 0.32 -- smaller values have an impact on the CNN architecture -- the information gets compressed quickly and it cannot pass through 3 layers
+**  -n NFILT, --nfilt NFILT: the number of filters to extract from the signal data -- will be one of the dimensions of the input to the CNN (nfilt x frame-length (as array length))
+**  -l WINLEN, --winlen WINLEN: the window length parameter for extracting features from the signal data with logfbank
+**  -w WINSTEP, --winstep WINSTEP: the window step parameter for extracting features with logfbank (which determines how much the windows from which features are extracted overlap)
+**  -t SPEECH_THRESH, --speech_thresh SPEECH_THRESH: a decision threshold value between (0,1) for speech vs non-speech, defaults to 0.5
+**  -m SPEECH_W_MUSIC_THRESH, --speech_w_music_thresh SPEECH_W_MUSIC_THRESH: a decision threshold value between (0,1) for speech_with_music vs non-speech, defaults to 0.5, increasing will remove more speech_with_music, useful for downsteam ASR
+**  -k MEDIAN_FILTER_KERNEL, --median_filter_kernel MEDIAN_FILTER_KERNEL: a kernel size for a median filter to smooth the output labels, defaults to 1 (no smoothing)
+**  -r EVAL_RES, --eval_res EVAL_RES: the resolution (time interval) of the evaluation. Suggested values: for human speech 0.01, for animal calls 0.004
+                        
+Argument necessary only if evaluation is wanted.
+** -e EVAL_DIR, --eval_dir EVAL_DIR: a path to a Kaldi-style data directory containing the ground truth VAD segments for evaluation
+
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
