@@ -105,6 +105,6 @@ if __name__ == '__main__':
     if utils.test_file_type(args.data_dir) == "mat":
         train_mat.test_model(model, args.data_dir, args.out_dir, params, speech_thresh=args.speech_thresh, res=args.eval_res)
     else:
-        train.test_model(model, args.data_dir, args.out_dir, args.eval_dir, params, speech_thresh=args.speech_thresh, speech_w_music_thresh=args.speech_w_music_thresh, filt=args.medial_filter_kernel, res=args.eval_res)
+        train.test_model(model, args.data_dir, args.out_dir, args.eval_dir, params, speech_thresh=args.speech_thresh, speech_w_music_thresh=args.speech_w_music_thresh, filt=args.median_filter_kernel, res=args.eval_res)
     
 
