@@ -174,6 +174,8 @@ if __name__ == '__main__':
                         help='a path to an output directory where the model will be saved as <model_name>.h5')
 
     args = parser.parse_args()
+    
+    os.makedirs(args.out_dir, exist_ok=True)
 
     timestamp = datetime.now().strftime("%d-%b-%Y_%H:%M")
     logfile = args.out_dir + "/" + args.model_name + "__train__" + timestamp + ".log"
