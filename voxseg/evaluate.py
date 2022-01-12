@@ -16,7 +16,7 @@ from voxseg import utils
 
 import itertools
 
-#from sklearn.metrics import confusion_matrix,f1_score,accuracy_score
+from sklearn.metrics import confusion_matrix,f1_score,accuracy_score
 
 import tensorflow as tf
 
@@ -78,8 +78,7 @@ def score(wav_scp: pd.DataFrame, sys_segs: pd.DataFrame, ref_segs: pd.DataFrame,
         t_labels = getWavLabels(len_data, rate, rec_id, ref_segs, winlen) 
         p_labels = getWavLabels(len_data, rate, rec_id, sys_segs, winlen)
         
-        #res = tf.get_static_value(tf.math.confusion_matrix(t_labels, p_labels))
-        res = compute_confusion_matrix(t_labels, p_labels)
+        res = confusion_matrix(t_labels, p_labels)
 
         scores['TP'] += res[1][1]
         scores['FP'] += res[0][1]
@@ -378,18 +377,7 @@ def getWavLabels(data_len: int, rate: int, rec_id: str, segments: pd.DataFrame, 
         
     return labels
     
-    
-    
-def compute_confusion_matrix(true_labels, pred_labels):
-    
-    mat = np.zeros((max(true_labels)+1, max(pred_labels)+1), dtype=int)
-    
-    for i in range(len(true_labels)):
-        mat[true_labels[i]][pred_labels[i]] += 1
-            
-    return mat
-
-
+ 
 
 # Handle args when run directly
 if __name__ == '__main__':
