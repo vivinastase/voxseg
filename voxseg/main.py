@@ -62,7 +62,7 @@ if __name__ == '__main__':
                        increasing will remove more speech_with_music, useful for downsteam ASR')
     parser.add_argument('-k', '--median_filter_kernel', type=int, default=1, 
                        help='a kernel size for a median filter to smooth the output labels, defaults to 1 (no smoothing)')
-    parser.add_argument('-r', '--eval_res', default=0.01,
+    parser.add_argument('-r', '--eval_res', type=float, default=0.01,
                          help="the resolution (time interval) of the evaluation. Suggested values: for human speech 0.01, for animal calls 0.004")
             
     ## evaluation information 

@@ -248,7 +248,8 @@ if __name__ == '__main__':
 
         df = pd.DataFrame(hist.history)
         df.index.name = 'epoch'
-        df.to_csv(f'{args.out_dir}/{args.model_name}_training_log.csv')
+        #df.to_csv(f'{args.out_dir}/{args.model_name}_training_log.csv')
+        logging.info("Training results:\n{}".format(df))
     else:
         print(f'ERROR: Number of classes {y.shape[-1]} is not equal to 2 or 4, see README for more info on using this training script.')
         
