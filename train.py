@@ -120,9 +120,7 @@ def test_model(model, data_dir, out_dir, eval_dir, params, speech_thresh = 0.5, 
         wav_scp, wav_segs, _ = voxseg.utils.process_data_dir(data_dir)
         _, sys_segs, _ = voxseg.utils.process_data_dir(out_dir)
         _, ref_segs, _ = voxseg.utils.process_data_dir(eval_dir)
-        scores = voxseg.evaluate.score(wav_scp, sys_segs, ref_segs, wav_segs, res)   ##frame_length)
-        print(scores)
-        voxseg.evaluate.print_confusion_matrix(scores)
+        voxseg.evaluate.score(wav_scp, sys_segs, ref_segs, wav_segs, res)   ##frame_length)
         voxseg.evaluate.score_syllables(wav_scp, sys_segs, ref_segs, params['winlen'])
 
 
