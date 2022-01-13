@@ -361,6 +361,5 @@ if __name__ == '__main__':
     wav_scp, wav_segs, _ = utils.process_data_dir(args.vad_input_dir)
     _, sys_segs, _ = utils.process_data_dir(args.vad_out_dir)
     _, ref_segs, _ = utils.process_data_dir(args.ground_truth_dir)
-    scores = score(wav_scp, sys_segs, ref_segs, wav_segs)
-    print(scores)
-    print_confusion_matrix(scores)
+    score(wav_scp, sys_segs, ref_segs, wav_segs)
+    
