@@ -30,14 +30,18 @@ def extract(data: pd.DataFrame, params: dict, rate: int) -> pd.DataFrame:
     '''
     
     print('--------------- Extracting features ---------------')
+    interval_length = utils.get_interval_length(rate, params)
+    
     logging.info("\tsampling rate = {}".format(rate))
+    logging.info("\tinterval length = {}".format(interval_length))
+    
     data = data.copy()
-    #data['features'] = data.apply(lambda x: _calculate_feats(x, params, rate), axis=1)
+    #data['features'] = data.apply(lambda x: _calculate_feats(x, params, rate, interval_length), axis=1)
     #'''
     features = []
     endpoints = []
     for i, row in data.iterrows():
-        (feats, ends) = _calculate_feats(row, params, rate)
+        (feats, ends) = _calculate_feats(row, params, rate, interval_length)
         features.append(feats)
         endpoints.append(ends)
     
@@ -135,7 +139,7 @@ def prep_data(data_dir: str, mode: str="train"):
         return (rate, data)
 
 
-def _calculate_feats(row: pd.DataFrame, params: dict, rate: int) -> np.ndarray:
+def _calculate_feats(row: pd.DataFrame, params: dict, rate: int, interval_length: int) -> np.ndarray:
     '''Auxiliary function used by extract(). Extracts log-mel spectrograms from a row of a pd.DataFrame
     containing dataset information created by prep_data().
 
@@ -159,7 +163,6 @@ def _calculate_feats(row: pd.DataFrame, params: dict, rate: int) -> np.ndarray:
         id = row['recording-id']
         
     try:
-        interval_length = utils.get_interval_length(rate, params)  ## will the interval length be different for each file? It could be if their lengths and sampling rates differ ...
         nfft = int(params['winlen'] * rate)
         len_sig = len(sig)
         
