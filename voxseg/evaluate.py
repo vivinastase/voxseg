@@ -21,37 +21,6 @@ from sklearn.metrics import confusion_matrix,f1_score,accuracy_score
 import tensorflow as tf
 
 
-def score_2(wav_scp: pd.DataFrame, sys_segs: pd.DataFrame, ref_segs: pd.DataFrame, wav_segs: pd.DataFrame, winlen: float):
-    '''Function for calculating the syllable scores
-    
-    Args:
-        wav_scp: A pd.DataFrame containing information about the wavefiles that have been segmented.
-        sys_segs: A pd.DataFrame containing the endpoints produced by a VAD system.
-        ref_segs: A pd.DataFrame containing the ground truth reference endpoints. 
-        winlen: The time interval covered by a column in the spectrogram -- not used right now   
-    '''
-
-    for _, row in wav_scp.iterrows():
-        f = row['extended filename']
-        rec_id = row['recording-id']
-        rate, signal = wavfile.read(f) 
-        len_data = len(signal)
-
-        t_labels = getWavLabels(len_data, rate, rec_id, ref_segs, winlen) 
-        p_labels = getWavLabels(len_data, rate, rec_id, sys_segs, winlen)
-        
-        cm = confusion_matrix(t_labels, p_labels)
-        prec = precision_score(t_labels, p_labels)
-        rec = recall_score(t_labels, p_labels)
-        f1 = f1_score(t_labels, p_labels)
-        acc = accuracy_score(t_labels, p_labels) 
-            
-    logging.info("Confusion matrix: {}".format(cm))
-    logging.info("Speech: {}, Non-speech: {}, All: {}".format(np.sum(cm[1]), np.sum(cm[0]), np.sum(cm)))
-    
-    logging.info('\n\n\tPrecision = {}\n\tRecall = {}\n\tF1 = {}\n\tAccuracy = {}'.format(round(prec, 3), round(rec, 3), round(f1, 3), round(acc, 3)))    
-    
-
 def score(wav_scp: pd.DataFrame, sys_segs: pd.DataFrame, ref_segs: pd.DataFrame, wav_segs: pd.DataFrame, winlen: float) -> Dict[str,Dict[str,int]]:
     '''Function for calculating the TP, FP, FN and TN counts from VAD segments and ground truth reference segments.
 
