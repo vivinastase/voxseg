@@ -227,7 +227,7 @@ def time_distribute(data: np.ndarray, sequence_length: int, stride: int = None, 
 ## compute the length of the signal, such that it returns a number of frames that matches the frame_length
 def get_interval_length(rate, params):
             
-    return int(rate * ((params['frame_length']-1) * params['winstep'] + params['winlen'])) ## size of the interval length to obtain exactly mum_frames frames (as required by the CNN)
+    return int(rate * ((params['frame_length']-1) * params['winstep'] + params['winlen']))-1 ## size of the interval length to obtain exactly mum_frames frames (as required by the CNN)
 
 
 def get_mat_interval_length(params):
