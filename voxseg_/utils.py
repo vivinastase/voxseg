@@ -19,6 +19,9 @@ from typing import Iterable, TextIO, Tuple
 import warnings
 import logging
 
+
+from sklearn.metrics import confusion_matrix, precision_recall_curve
+
 import glob
 
 import voxseg
@@ -222,6 +225,39 @@ def time_distribute(data: np.ndarray, sequence_length: int, stride: int = None, 
             td_data.append(z_padded)
             
     return np.array(td_data)
+
+
+
+
+
+def get_threshold(y_pred, y_true):
+    
+    y_pred = extract_flat_labels(y_pred, "pred")
+    y_true = list(map(int, extract_flat_labels(y_true, "true")))
+    
+    precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
+    f1_scores = 2*recall*precision/(recall+precision)   
+    #weights = confusion_matrix(y_true, y_pred).sum(axis=1)
+    #weighted_f1_scores = np.average(f1_scores, weights=weights)
+    
+    
+    print('Best threshold: ', thresholds[np.argmax(f1_scores)])    
+    print('Best F1-Score: ', np.max(f1_scores))
+    
+    return float(thresholds[np.argmax(f1_scores)])
+
+
+
+def extract_flat_labels(pred_list, labels_type):
+
+    flat_list = []
+    
+    for frame in pred_list:
+        flat_list.extend([x[1] for x in frame])
+    
+    return flat_list
+
+
 
 
 ## compute the length of the signal, such that it returns a number of frames that matches the frame_length

@@ -8,14 +8,18 @@ import re
 import os
 import glob
 
+import random
+
 import collections
 
 import numpy as np
 
 from scipy import signal
-from scipy.io import wavfile 
+from scipy.io import wavfile, loadmat
 
 import pandas as pd
+
+from data import annotations_utils
 
 '''
     generate output formatted for voxseg:
@@ -44,16 +48,60 @@ import pandas as pd
     rec_000_02 speech
     rec_000_03 non_speech
 '''
-def make_voxseg(files_dir, name, data_path, isTest, isStandAlone, wav_ext, annot_ext, sep = "\t"):
+def make_voxseg(files_dir, name, data_path, split, wav_ext, annot_ext, sep = "\t"):
+
+    files = glob.glob(files_dir + '/*.' + wav_ext)
+    print("Processing {} files".format(len(files)))
     
-    if isTest:
-            if not isStandAlone:
-                files_dir += ".test/"
-            name += ".test"
+    if len(glob.glob(files_dir + "/*." + annot_ext)) == 0:
+        #no annotations file, make a directory with test data only
+        make_voxseg_data(files, list(range(len(files))), data_path, name + ".test", wav_ext, annot_ext, sep, "test")
+
     else:
-            if not isStandAlone:
-                files_dir += ".train/" 
-            name += ".train"
+    
+        if split != "none":
+            #data_split = loadmat(split)  ## there is something not clear about the indices in this mat file
+            data_split = get_data_split(split, files)
+        else:
+            data_split = {'i_train': [list(range(len(files)))], 'i_test': [list(range(len(files)))]}
+        
+        print("Processing {} wav files".format(len(files)))
+        splits = ['train', 'valid', 'test']
+        
+        for x in splits:
+            k = 'i_' + x
+            if k in data_split.keys():
+                make_voxseg_data(files, data_split[k][0], data_path, name + "." + x, wav_ext, annot_ext, sep, x)
+        
+        ## make a complete version of the test dir, for evaluation purposes
+        make_voxseg_data(files, data_split['i_test'][0], data_path, name + ".test_eval", wav_ext, annot_ext, sep, "test")
+     
+     
+def get_data_split(files):
+    
+    N = len(files)
+    split = [0.75, 0.05, 0.2]
+    
+    ind_list = []
+    for i in range(len(split)):
+        ind_list.extend([i] * int(N * split[i]))
+        
+    if len(ind_list) < N:
+        ind_list.extend([0] * (N-len(ind_list)))
+        
+    random.shuffle(ind_list)
+    
+    split_map = {'i_train': 0, 'i_valid': 1, 'i_test': 2}
+    data_split = dict()
+    for k in split_map.keys():
+        data_split[k] = [[i for i, x in enumerate(ind_list) if x == split_map[k]]]
+        print("\t{} => {} files".format(k, len(data_split[k])))
+        
+    return data_split
+    
+     
+     
+def make_voxseg_data(files, indices, data_path, name, wav_ext, annot_ext, sep, split_type):
      
     data_path += "/" + name + "/"
     if not os.path.exists(data_path):
@@ -63,35 +111,53 @@ def make_voxseg(files_dir, name, data_path, isTest, isStandAlone, wav_ext, annot
     segments = open(data_path + "/segments", "w")
     utt2spk  = open(data_path + "/utt2spk", "w") 
     
+    n = 0
+    nr_segs = 0
+    
     print("Reformatting data for voxseg ...")
     print("\toutputs will go to:\n\t{}\n\t{}\n\t{}\n".format(wav_scp, segments, utt2spk))
-    
-    n = 0
+    print("Files: {}".format(files))
+    print("Indices: {}".format(indices))
+            
+    for i in indices:
+        #file_stem = os.path.splitext(files[i-1])[0]  ## doesn't work if a directory contains a "."
+        file_path = "/".join(files[i-1].split("/")[:-1])
+        file_stem = file_path + "/" + ".".join(files[i-1].split("/")[-1].split(".")[:-1])
         
-    print("\nReading information from directory {}".format(files_dir))
-        
-    for f in glob.glob(files_dir + '/*.' + wav_ext):
-        file_stem = os.path.splitext(f)[0]
         wav_file = file_stem + "." + wav_ext
         annot_file = file_stem + "." + annot_ext
 
         rec_id = make_id("rec", n)
         wav_scp.write("{} {}\n".format(rec_id,wav_file))
+        
         n += 1
+                
+        annots = annotations_utils.get_annotations(annot_file, annot_ext, sep)
+        #segs_info = os.popen("wc " + annot_file).read()
+        print("{} (i={}) Processing file {} ({}) -- {} segments".format(n, i, wav_file, rec_id, len(annots))) 
         
-        print("\n\nProcessing file {}\n".format(wav_file))
+        nr_segs += len(annots)
         
-        ## write the begin and end of segments -- these must include the "negative segments" as well
-        if annot_ext == "txt":
-            annots = pd.read_csv(annot_file, sep=sep, header = None)
-        else:
-            annots = pd.read_csv(annot_file, sep=sep)
-        
-        process_file4voxseg(annots, segments, utt2spk, isTest, rec_id)
+        process_file4voxseg(annots, segments, utt2spk, split_type == "test", rec_id)
                     
     wav_scp.close()
     segments.close()
     utt2spk.close()
+    
+    ## if not removed it will confuse voxseg
+    if nr_segs == 0:
+        os.system("rm " + data_path + "/segments")
+        os.system("rm " + data_path + "/utt2spk")
+    
+    '''
+    ## make files only readable so they don't get overwritten by mistake
+    if not split_type == "test":
+        os.system(" chmod 444 " + data_path + "/wav.scp")
+        os.system(" chmod 444 " + data_path + "/segments")
+        os.system(" chmod 444 " + data_path + "/utt2spk")
+    '''
+        
+    print("Number of segments for {} split: {}".format(split_type, nr_segs))
     
     
 '''
@@ -173,12 +239,11 @@ def get_rec_id(wav_file, rec_ids, wav_scp, n_utt, prev_end):
     
 def process_file4voxseg(annots, segments, utt2spk, isTest, rec_id):   
     
-    annots.sort_values('start', inplace=True) 
     n_utt = 0
     prev_end = 0
     for k, row in annots.iterrows():  
         
-        (begin, end, call_type) = get_annot_info(row)
+        (begin, end, call_type) = annotations_utils.get_annot_info(row)
         
         #print("processing segment: {}\t{}\t{}".format(begin, end, call_type))
         
@@ -195,16 +260,8 @@ def process_file4voxseg(annots, segments, utt2spk, isTest, rec_id):
 
             n_utt += 1
 
-
-def get_annot_info(annots_row):
-
-    if 'start' in annots_row.keys():
-        return (annots_row['start'], annots_row['end'], "speech")
     
-    if len(annots_row) == 3:
-        return annots_row
-        
-    return (annots_row[2], annots_row[3], "speech")
+
 
 
 def process_file(file_stem, wav_ext, annot_ext, annots = None):
@@ -227,28 +284,8 @@ def process_file(file_stem, wav_ext, annot_ext, annots = None):
     print("audio length: {}".format(len(signalData)))
     print("sampling frequency: {}".format(samplingFrequency))
     print("spectrogram shape: {}".format(spectrogram.shape))
-    
-    headers = {'csv': {'start' : 'Start', 'duration': 'Duration', 'call_type': 'Name'},
-               'txt': {'start': 0, 'end': 1, 'call_type': 2},
-               'zf': {'start': 'onset', 'duration': 'duration', 'call_type': 'cluster_id'}
-               }
-    
-    annot_type = annot_ext
-    if isinstance(annots, pd.DataFrame):
-        annots = annots[annots['file'] == file_stem]
-        samplingFrequency = 1 ## because the data exported from flatclust is already scaled
-        annot_type = "zf"
-    else:
-        annot_file = file_stem + "." + annot_ext
-        if annot_ext == "txt":
-            annots = pd.read_csv(annot_file, sep="\t", header = None)
-        else:
-            annots = pd.read_csv(annot_file, sep="\t")
-                     
-    labels = transform_annotations(spectrogram.shape[1], annots, spectrogram.shape[1]/len(signalData), headers[annot_type])
 
-    return(spectrogram, labels)
-
+    return (spectrogram, annotations_utils.get_labels(spectrogram.shape[1], samplingFrequency, annots, file_stem, annot_ext))
 
 
 
@@ -266,27 +303,6 @@ def smooth(np_array):
        
     return np_array
       
-    
-    
-def transform_annotations(N, array, samplingFrequency, headers):
-    
-    print("transforming annotations ({})".format(N))
-    
-    labels = np.zeros(N)
-    for id, row in array.iterrows():
-           
-        begin = convert_time(row[headers['start']])
-        if 'end' in headers.keys():
-            end = convert_time(row[headers['end']])
-        else:
-            end = begin + convert_time(row[headers['duration']])
-        
-        for i in range(int((begin-1)*samplingFrequency),int((end-1)*samplingFrequency)):   ##+1):
-            labels[i] = 1
-            
-    return labels
-
-
 
 def get_file_stems(files_dir, ext):
     
@@ -344,29 +360,6 @@ def is_acceptable(call_type, end, prev_end):
     return False
 
 
-def get_time(start, duration): 
-  
-    begin = convert_time(start)
-    end = begin + convert_time(duration)        
-  
-    return (begin,end)
-
-
-def convert_time(time_str):
-
-    if int(time_str):
-        return int(time_str)
-    
-    if float(time_str):
-        return float(time_str)
-    
-    m = re.match(r'^(\d+)\:(\d+)\.(\d+)$', time_str)
-    if m:
-        return int(m.group(1)) * 60 + int(m.group(2)) + int(m.group(3)) * pow(10,(-1)*len(m.group(3)))
-    
-    
-    print("I don't recognize the file format: {}".format(time_str))
-    return 0
 
 
 
@@ -388,7 +381,7 @@ def get_annot_file(files_dir, ext):
     
     files = glob.glob(files_dir + "/*." + ext)
     if len(files) > 1:
-        print("oo many potential annotation files ... don't know how to choose\nStopping.")
+        print("too many potential annotation files ... don't know how to choose\nStopping.")
         exit
         
     return files[0]
@@ -429,7 +422,7 @@ def split_files(counts, max_inst):
 def getSamplingRate(wav_file):
     
     samplingFrequency, _signalData = wavfile.read(wav_file)
-    print("Sampling rate of {} = {}".format(wav_file, samplingFrequency))
+    #print("Sampling rate of {} = {}".format(wav_file, samplingFrequency))
     
     return samplingFrequency
 
@@ -438,7 +431,6 @@ def write_annots(annots, file, dir):
     
     annots_file = os.path.splitext(dir + "/" + file)[0] + "_annotations.csv"
     annots.to_csv(annots_file, index=False)
-
 
 
    

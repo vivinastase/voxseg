@@ -10,7 +10,7 @@ import pandas as pd
 import os
 import logging
 
-from voxseg import utils
+from voxseg_ import utils
 
 import collections
 

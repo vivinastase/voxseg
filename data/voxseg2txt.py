@@ -44,9 +44,13 @@ def reformat(data_path):
 
     (annots, files) = read_annotations(data_path)
         
+    f_all = open(data_path + "/system_annotations.txt", 'w')
+    f_all.write("File\tOnsets__time\tOffsets_time\n")
+        
     for rec_id in annots.keys():
-        f = open(data_path + "/" + files[rec_id][0] + ".prediction", 'w')
-        f_simple = open(data_path + "/" + files[rec_id][0] + ".txt", 'w')
+        file_name = files[rec_id][0]
+        f = open(data_path + "/" + file_name + ".prediction", 'w')
+        f_simple = open(data_path + "/" + file_name + ".txt", 'w')
                 
         i = 1
         f.write("Name\tStart\tDuration\tTime Format\tType\tDescription\n")
@@ -54,6 +58,7 @@ def reformat(data_path):
             f.write("Marker {}\t{}\t{}\tdecimal\tCue\t\n".format(i, start_dec, duration_dec))
             i += 1
             f_simple.write("{}\t{}\t{}\n".format(start, end, i))
+            f_all.write("{}\t{}\t{}\n".format(file_name, start, end))
          
         f_simple.close()
         f.close()

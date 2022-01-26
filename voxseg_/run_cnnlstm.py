@@ -16,7 +16,7 @@ from scipy.signal import medfilt
 
 from typing import Tuple
 
-from voxseg import utils
+from voxseg_ import utils
 
 '''
 gpus = tf.config.experimental.list_physical_devices('GPU')

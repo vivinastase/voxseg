@@ -12,14 +12,41 @@ import math
 
 from scipy.io import wavfile
 from typing import Dict
-from voxseg import utils
+
+from voxseg_ import utils
 
 import itertools
 
-from sklearn.metrics import confusion_matrix,f1_score,accuracy_score
+from sklearn.metrics import confusion_matrix,precision_score,recall_score,f1_score,accuracy_score
 
 import tensorflow as tf
 
+
+
+def score_2(wav_scp: pd.DataFrame, sys_segs: pd.DataFrame, ref_segs: pd.DataFrame, wav_segs: pd.DataFrame, winlen: float):
+    '''Function for calculating the syllable scores
+    
+    Args:
+        wav_scp: A pd.DataFrame containing information about the wavefiles that have been segmented.
+        sys_segs: A pd.DataFrame containing the endpoints produced by a VAD system.
+        ref_segs: A pd.DataFrame containing the ground truth reference endpoints. 
+        winlen: The time interval covered by a column in the spectrogram -- not used right now   
+    '''
+
+    (t_labels, p_labels) = getLabels(wav_scp, ref_segs, sys_segs, winlen)
+        
+    cm = confusion_matrix(t_labels, p_labels)
+    prec = precision_score(t_labels, p_labels)
+    rec = recall_score(t_labels, p_labels)
+    f1 = f1_score(t_labels, p_labels)
+    acc = accuracy_score(t_labels, p_labels) 
+            
+    logging.info("\n\nConfusion matrix new (0 -> non speech. 1 -> speech):\n{}\n".format(pd.DataFrame(cm)))
+    logging.info("Speech: {}, Non-speech: {}, All: {}".format(np.sum(cm[1]), np.sum(cm[0]), np.sum(cm)))
+    
+    logging.info('Column scores new:\tP = {}\tR = {}\tF1 = {}\tAccuracy = {}\n'.format(round(prec, 3), round(rec, 3), round(f1, 3), round(acc, 3)))
+    
+    
 
 def score(wav_scp: pd.DataFrame, sys_segs: pd.DataFrame, ref_segs: pd.DataFrame, wav_segs: pd.DataFrame, winlen: float) -> Dict[str,Dict[str,int]]:
     '''Function for calculating the TP, FP, FN and TN counts from VAD segments and ground truth reference segments.
@@ -56,7 +83,7 @@ def score(wav_scp: pd.DataFrame, sys_segs: pd.DataFrame, ref_segs: pd.DataFrame,
         num_tn = num_ground_truth_n - num_fp
         scores[i] = {'TP': num_tp, 'FP': num_fp, 'FN': num_fn, 'TN': num_tn}
         
-    print("Scores: {}".format(pd.DataFrame(scores)))
+    logging.info("Scores:\n{}".format(pd.DataFrame(scores)))
     print_confusion_matrix(scores)
     
     return scores
@@ -75,19 +102,19 @@ def print_confusion_matrix(scores: Dict[str,Dict[str,int]]) -> None:
         fn += scores[i]['FN']
         tn += scores[i]['TN']
     
-    logging.info('\t\t\t\tTrue\n' + \
-          '\t\t\t\tSpeech\tNon-speech\n' + \
-          'Predicted\tSpeech\t\t' + str(round(tp / (tp + fn + sys.float_info.epsilon), 3)) + '\t' + str(round(fp / (tn + fp + sys.float_info.epsilon), 3)) + '\n' + \
-          '\t\tNon-speech\t'+ str(round(fn / (tp + fn + sys.float_info.epsilon), 3)) + '\t' + str(round(tn / (tn + fp + sys.float_info.epsilon), 3)))
+    #logging.info('\t\t\t\tTrue\n' + \
+    #      '\t\t\t\tSpeech\tNon-speech\n' + \
+    #      'Predicted\tSpeech\t\t' + str(round(tp / (tp + fn + sys.float_info.epsilon), 3)) + '\t' + str(round(fp / (tn + fp + sys.float_info.epsilon), 3)) + '\n' + \
+    #      '\t\tNon-speech\t'+ str(round(fn / (tp + fn + sys.float_info.epsilon), 3)) + '\t' + str(round(tn / (tn + fp + sys.float_info.epsilon), 3)))
        
     prec = tp / (tp + fp + sys.float_info.epsilon)
     rec = tp / (tp + fn + sys.float_info.epsilon)
     f1 = 2 * prec * rec / (prec + rec)
              
-    logging.info("\n\tTP: {}\tFP: {}\n\tFN: {}\tTN: {}\n".format(tp, fp, fn, tn))
+    logging.info("\nConfusion matrix VoxSeg (TP FP / FN TN):\n{}".format(pd.DataFrame([[tp, fp], [fn, tn]])))
     logging.info("Speech: {}, Non-speech: {}, All: {}".format(tp+fn, fp+tn, tp+fp+fn+tn))
     
-    logging.info('\n\n\tPrecision = {}\n\tRecall = {}\n\tF1 = {}'.format(round(prec, 3), round(rec, 3), round(f1, 3)))
+    logging.info('Column scores VoxSeg:\tP = {}\tR = {}\tF1 = {}\tAcc = {}'.format(round(prec, 3), round(rec, 3), round(f1, 3), round((tp + tn)/(tp + fp + fn + tn + sys.float_info.epsilon), 3)))
 
 
 def score_syllables(wav_scp: pd.DataFrame, sys_segs: pd.DataFrame, ref_segs: pd.DataFrame, winlen: float):
@@ -131,9 +158,10 @@ def score_syllables(wav_scp: pd.DataFrame, sys_segs: pd.DataFrame, ref_segs: pd.
         scores[t]["Rec"]  = scores[t]['TP']/ (scores[t]['Nr_syll'] + sys.float_info.epsilon)
         scores[t]["F1"] = 2 * scores[t]["Prec"] * scores[t]["Rec"] / (scores[t]["Prec"] + scores[t]["Rec"] + sys.float_info.epsilon)
         
-    logging.info("Syllable scores for tolerance between 0 and {}:\n{}".format(max_tolerance-1, pd.DataFrame(scores)))
+    logging.info("\nSyllable scores for tolerance between 0 and {}:\n{}".format(max_tolerance-1, pd.DataFrame(scores)))
     
-    
+    syllable_scores_Xinyu(wav_scp, ref_segs, sys_segs, winlen)
+        
 
 
 def _segments_to_mask(wav_scp: pd.DataFrame, segments: pd.DataFrame, frame_length: float = 0.01) -> Dict[str,np.ndarray]:
@@ -197,8 +225,8 @@ def print_scores(labels_true, labels_pred):
     rec = scores[1][1] / (scores[1][1] + scores[1][0] + sys.float_info.epsilon)
     accuracy = (scores[0][0] + scores[1][1]) / (scores[0][0] + scores[0][1] + scores[1][0] + scores[1][1])
     
-    logging.info("Precision = {}\nRecall = {}\nF-score = {}\nAccuracy = {}\n".format(prec, rec, 2*prec*rec/(prec+rec + sys.float_info.epsilon), accuracy))
-    
+    logging.info("Column scores:\tP = {}\tR = {}\tF1 = {}\tAcc = {}".format(prec, rec, 2*prec*rec/(prec+rec + sys.float_info.epsilon), accuracy))
+   
 
 def score_mat(targets, eval_data, n_columns, interval_length, winstep, thresh):
 
@@ -261,9 +289,9 @@ def syllable_score(predict, true, tolerance=0):
 
     precision = TP / (FP + TP + sys.float_info.epsilon)
     recall = TP / (nr_syll + sys.float_info.epsilon)
-    f1_score = 2 * precision * recall / (precision + recall + 1e-12)
+    f1_score = 2 * precision * recall / (precision + recall + sys.float_info.epsilon)
      
-    logging.info("Syllable scores for tolerance = {}:\n\tprecision = {}\n\trecall = {}\n\tf1score = {}".format(tolerance, precision, recall, f1_score))
+    logging.info("Syllable scores for tolerance={}:\tP={}\tR={}\tF1={}".format(tolerance, precision, recall, f1_score))
 
     return (precision, recall, f1_score)
 
@@ -279,6 +307,25 @@ def score_boundaries(p_onset, p_offset, t_onset, t_offset, tolerance):
                     TP += 1
                     
     return (TP, len(p_onset)-TP, len(t_onset))
+
+
+
+
+def getLabels(wav_scp, ref_segs, sys_segs, winlen):
+
+    t_labels = []
+    p_labels = []
+
+    for _, row in wav_scp.iterrows():
+        f = row['extended filename']
+        rec_id = row['recording-id']
+        rate, signal = wavfile.read(f) 
+        len_data = len(signal)
+
+        t_labels.extend(getWavLabels(len_data, rate, rec_id, ref_segs, winlen)) 
+        p_labels.extend(getWavLabels(len_data, rate, rec_id, sys_segs, winlen))
+        
+    return (t_labels, p_labels)
 
 
 
@@ -341,6 +388,85 @@ def getWavLabels(data_len: int, rate: int, rec_id: str, segments: pd.DataFrame, 
     return labels
     
  
+
+def syllable_scores_Xinyu(wav_scp, ref_segs, sys_segs, winlen):
+
+    min_syllable_length = 7
+    max_tolerance = 6
+    
+    logging.info("\nXinyu's syllable scoring (filtering syllables shorter than {})".format(min_syllable_length))
+
+    (t_labels, p_labels) = getLabels(wav_scp, ref_segs, sys_segs, winlen)
+    for tolerance in range(max_tolerance):
+        syllable_score_Xinyu(p_labels, t_labels, tolerance, min_syllable_length)
+
+
+def syllable_score_Xinyu(predict, true, tolerance=0, min_len = 7):
+    predict = np.insert(predict, 0, 0)
+    predict = np.append(predict, 0)
+    true = np.insert(true, 0, 0)
+    true = np.append(true, 0)
+    t_onset, t_offset, p_onset, p_offset, p_idx = [], [], [], [], []
+    for i in range(1, len(true) - 1):
+        if true[i] == 1:
+            if true[i - 1] == 0:
+                t_onset.append(i)
+            if true[i + 1] == 0:
+                t_offset.append(i)
+    if not len(t_onset) == len(t_offset):
+        print("WARNING:The tonset length is not equal to the toffset length!")
+
+    for i in range(1, len(predict) - 1):
+        if predict[i] == 1:
+            if predict[i - 1] == 0:
+                p_onset.append(i)
+            if predict[i + 1] == 0:
+                p_offset.append(i)
+    for i in range(len(p_onset)):
+        if p_offset[i] - p_onset[i] < min_len:
+            p_idx.append(i)
+    p_onset = [i for num, i in enumerate(p_onset) if num not in p_idx]
+    p_offset = [i for num, i in enumerate(p_offset) if num not in p_idx]
+    if not len(p_onset) == len(p_offset):
+        print("WARNING:The ponset length is not equal to the poffset length!")
+    
+    #logging.info("True onsets and offsets: \n\t{}\n\t{}".format(t_onset, t_offset))
+    #logging.info("Pred onsets and offsets: \n\t{}\n\t{}".format(p_onset, p_offset))
+    
+        
+    TP = 0
+    FP = 0
+    tmp = 0
+        
+    for i in range(len(p_onset)):
+        index = np.zeros(2 * tolerance + 1)
+        for j in range(-tolerance, tolerance + 1):              
+            if p_onset[i] + j in t_onset:
+                index[j] = t_onset.index(p_onset[i] + j)
+            else:
+                index[j] = -1
+        tmpidx = list(filter(lambda x: x > 0, index))
+        if len(tmpidx) == 0:
+            FP = FP + 1
+            tmp = -1
+        else:
+            for k in range(len(tmpidx)):
+                tmpidx[k] = int(tmpidx[k])
+                if abs(t_offset[tmpidx[k]] - p_offset[i]) <= tolerance:
+                    TP = TP + 1
+                    tmp = tmp + 1
+        if tmp == 0:
+            FP = FP + 1
+        else:
+            tmp = 0
+
+    precision = TP / (FP + TP + 1e-12)
+    recall = TP / (len(t_onset) + 1e-12)
+    acc_rate = 2 * precision * recall / (precision + recall + 1e-12)
+
+    logging.info("Syllable scores for tolerance {}:TP={}\tFP={}\tNr_syll={}\tP={}\tR={}\taccuracy rate={}".format(tolerance, TP, FP, len(t_onset), precision, recall, acc_rate))
+
+    return precision, recall, acc_rate
 
 # Handle args when run directly
 if __name__ == '__main__':

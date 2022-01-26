@@ -9,7 +9,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from voxseg import utils
+from voxseg_ import utils
 from python_speech_features import logfbank
 
 
