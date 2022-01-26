@@ -61,7 +61,7 @@ def make_voxseg(files_dir, name, data_path, split, wav_ext, annot_ext, sep = "\t
     
         if split != "none":
             #data_split = loadmat(split)  ## there is something not clear about the indices in this mat file
-            data_split = get_data_split(split, files)
+            data_split = get_data_split(files)
         else:
             data_split = {'i_train': [list(range(len(files)))], 'i_test': [list(range(len(files)))]}
         
