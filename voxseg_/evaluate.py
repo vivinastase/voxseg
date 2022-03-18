@@ -445,7 +445,7 @@ def syllable_score_Xinyu(predict, true, tolerance=0, min_len = 7):
                 index[j] = t_onset.index(p_onset[i] + j)
             else:
                 index[j] = -1
-        tmpidx = list(filter(lambda x: x > 0, index))
+        tmpidx = list(filter(lambda x: x >= 0, index))
         if len(tmpidx) == 0:
             FP = FP + 1
             tmp = -1
