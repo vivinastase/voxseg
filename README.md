@@ -37,20 +37,22 @@ The script "reformat4voxseg.py" in the data package will convert the wav files a
 
 Parameters:
 
-* -files_dir: the path to the dataset 
-* -data_path: the path to the directory where the results of the processing will be put
-* -name: the name of the experiment/bird/animal -- it will combined with data_dir and train/test/test_eval extensions to make the data partitions 
+* -files_dir: the path to the dataset (if there are test and train versions, then the path to the common stem)
+* -data_dir: the path to the directory where the results of the processing will be put
+* -isTest: whether the data to be processed will be used only for prediction (the segments and utt2spk files will only contain speech segments -- for evaluation, if wanted)
+* -isStandAlone: I usually process pairs of directories (for train and test), so set this to True if there is a "one off" directory to be processed
 * -wav_ext: extension of the recordings file (could be wav or WAV)
 * -annot_ext: extension of the annotations file (could be txt or csv) -- the assumptions about their headers and such is hard coded
-* -sep: field separator for the annotations file (default ",")
+* -sep: field separator for the annotations file
 
 Example of usages:
 
 ```
-python3.8 data/reformat4voxseg.py  -files_dir <FILES_DIR/NAME> -name <NAME> -data_path <DATA_DIR> 
+python3.8 data/reformat4voxseg.py -files_dir ~/Data/Segmentation/marmosets/garetta_raw -data_path ~/Data/Segmentation/voxseg/ -wav_ext WAV -annot_ext txt -isStandAlone False -sep "\t"
 ```
 
-This will process the files in directory <FILES_DIR/NAME> and create train, test and test_eval directories under <DATA_DIR>. The ".test" directory will only contain the wav.scp file for VoxSeg, and the ".test_eval" will also contain the segments and utt2spk files (only with positive instances) for evaluation purposes.
+This will process the garetta_raw.train and garetta_raw.test directories in the ~/Data/Segmentation/marmosets/ directory, and make two parallel directories under ~/Data/Segmentation/voxseg
+
 
 The files used as input for Voxseg (that could be generated as described above)  are the same as those used by the Kaldi toolkit. Extensive documentation on the data preparation process for Kaldi may be found [here](https://kaldi-asr.org/doc/data_prep.html). Only the files required by the Voxseg toolkit are described here.
 
@@ -86,7 +88,7 @@ Parameters:
 Example usage:
 
 ```
-python3.8 data/voxseg2txt.py -data_path <PREDICTIONS_DIR>
+python3.8 data/voxseg2txt.py -data_path ~/Data/Segmentation/voxseg/garetta_raw.test.predictions/
 ```
 
 
@@ -98,26 +100,26 @@ There are a number of additional parameters that must be specified for each step
 
 To run the full VAD pipeline -- train, test -- use the following command in the top level of the code repository (voxseg):
 ```
-python3.8 train.py <params> train_data_directory model_name out_dir
+python3.8 train.py [params] train_data_directory model_name out_dir
 ```
 
 or 
 
 ```
-python3.8 train_mat.py <params> <train_data_directory> <model_name> <out_dir>
+python3.8 train_mat.py [params] [train_data_directory] [model_name] [out_dir]
 ```
 
-for mat files (of particular format ...) -- the final version for this file is not included in this repository.
+for mat files (of particular format ...).
 
 
 A more detailed example:
 
 ```
-python3.8 train.py -s 0.1 -n 128 -f 32 -t <test_directory> -e <eval_directory> <train_directory> <model_name> <output_directory>
+python3.8 train.py -s 0.1 -n 128 -f 32 -t [test_directory] -e [eval_directory] [train_directory] [model_name] [output_directory]
 ```
 
-This would train a model on the data in the train_directory, write the model into the <output_directory>/<model_name>.h5 file.
-It saves all the information, including trained model and its parameters, into a json file named: <outdir>/<model_name>.json
+This would train a model on the data in the train_directory, write the model into the [output_directory]/[model_name].h5 file.
+It saves all the information, including trained model and its parameters, into a json file named: [outdir]/[model_name].json
 (When testing a pretrained model, provide this config file as a parameter.)
 
 It would evaluate the performance on the data in the eval_directory, and predict annotations for the test data.
@@ -154,12 +156,12 @@ python3.8 train.py -h
 
 Run a model using a config file for a pretrained model:
 ```
-python3.8 voxseg/main.py -c <config_file (.json)> -e <eval_directory>  <test_directory> <predictions_directory>
+python3.8 voxseg/main.py -c [config_file (.json)] -e [eval_directory]  [test_directory] [predictions_directory]
 ```
 
-Run a model by explicitly providing the model to use and parameters (the parameters must be the same as for training the model, so it is best to use a configuration file which is created during training):
+Run a model by explicitly providing the model to use and parameters (the parameters must be the same as for training the model):
 ```
-python3.8 voxseg/main.py -n 128 -f 32 -t 0.2 -M [model (.h5)] -e <eval_directory> <test_directory> <predictions_directory>
+python3.8 voxseg/main.py -n 128 -f 32 -t 0.2 -M [model (.h5)] -e [eval_directory] [test_directory] [predictions_directory]
 ```
 
 This will load the model from the given model file (...h5), and produce automatic annotations on the data in the test_directory, and write the predictions to the predictions_directory. The classification threshold is 0.2, and the model will build features of size 128 for a frame length of 32.
