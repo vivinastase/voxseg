@@ -105,12 +105,14 @@ def normalize(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
-def prep_data(data_dir: str, mode: str="train"):
+def prep_data(data_dir: str, params,  mode: str="train"):
     '''Function for creating pd.DataFrame containing dataset information specified by Kaldi-style
     data directory.
 
     Args:
         data_dir: The path to the data directory.
+        params: processing parameters (winlen, winstep, ...)
+        mode: train/valid/test
 
     Returns:
         A pd.DataFrame of dataset information. For example:
@@ -124,7 +126,7 @@ def prep_data(data_dir: str, mode: str="train"):
         contains 'segments' file.
     '''
 
-    wav_scp, segments, _  = utils.process_data_dir(data_dir)
+    wav_scp, segments, _  = utils.process_data_dir(data_dir, params)
 
     # check for segments file and process if found
     if (segments is None) or (mode == "test"):

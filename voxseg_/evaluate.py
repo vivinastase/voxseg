@@ -42,7 +42,7 @@ def score_2(wav_scp: pd.DataFrame, sys_segs: pd.DataFrame, ref_segs: pd.DataFram
     acc = accuracy_score(t_labels, p_labels) 
             
     logging.info("\n\nConfusion matrix new (0 -> non speech. 1 -> speech):\n{}\n".format(pd.DataFrame(cm)))
-    logging.info("Speech: {}, Non-speech: {}, All: {}".format(np.sum(cm[1]), np.sum(cm[0]), np.sum(cm)))
+    logging.info("Column labels (all): Speech: {}, Non-speech: {}, All: {}".format(np.sum(cm[1]), np.sum(cm[0]), np.sum(cm)))
     
     logging.info('Column scores new:\tP = {}\tR = {}\tF1 = {}\tAccuracy = {}\n'.format(round(prec, 3), round(rec, 3), round(f1, 3), round(acc, 3)))
     
@@ -109,7 +109,7 @@ def print_confusion_matrix(scores: Dict[str,Dict[str,int]]) -> None:
        
     prec = tp / (tp + fp + sys.float_info.epsilon)
     rec = tp / (tp + fn + sys.float_info.epsilon)
-    f1 = 2 * prec * rec / (prec + rec)
+    f1 = 2 * prec * rec / (prec + rec + sys.float_info.epsilon)
              
     logging.info("\nConfusion matrix VoxSeg (TP FP / FN TN):\n{}".format(pd.DataFrame([[tp, fp], [fn, tn]])))
     logging.info("Speech: {}, Non-speech: {}, All: {}".format(tp+fn, fp+tn, tp+fp+fn+tn))
@@ -445,7 +445,7 @@ def syllable_score_Xinyu(predict, true, tolerance=0, min_len = 7):
                 index[j] = t_onset.index(p_onset[i] + j)
             else:
                 index[j] = -1
-        tmpidx = list(filter(lambda x: x > 0, index))
+        tmpidx = list(filter(lambda x: x >= 0, index))
         if len(tmpidx) == 0:
             FP = FP + 1
             tmp = -1

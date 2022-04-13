@@ -45,7 +45,7 @@ def reformat(data_path):
     (annots, files) = read_annotations(data_path)
         
     f_all = open(data_path + "/system_annotations.txt", 'w')
-    f_all.write("File\tOnsets__time\tOffsets_time\n")
+    f_all.write("File\tStart\tEnd\n")
         
     for rec_id in annots.keys():
         file_name = files[rec_id][0]

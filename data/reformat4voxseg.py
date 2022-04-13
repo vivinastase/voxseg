@@ -17,11 +17,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     #parser.add_argument('-files_dir', default="/home/vivi/Data/Segmentation/humans/shipibo_lena.jaico", help="Path to the dataset")    
-    parser.add_argument('-files_dir', default="/home/vivi/Data/Segmentation/birds/R3428_split_binary", help="Path to the dataset")
+    parser.add_argument('-files_dir', default="/home/vivi/Data/Segmentation/birds/R3428_final/049", help="Path to the dataset")
 
-    parser.add_argument('-name', help="name of dataset/animal/experiment")
+    parser.add_argument('-name', default="049_split_binary", help="name of dataset/animal/experiment")
 
-    parser.add_argument('-split', default = "none", help="The (mat) file with the split into train, dev and test")
+    parser.add_argument('-split', default = None, help="The (mat) file with the split into train, dev and test")
     
 #    parser.add_argument('-data_path', default="/home/vivi/Data/Segmentation/classification", help="top level for classification data. each animal will have its own subdir, with the necessary mat files")    
     parser.add_argument('-data_path', default="/home/vivi/Data/Segmentation/voxseg/", help="top level for classification data. each animal will have its own subdir, with the necessary mat files")

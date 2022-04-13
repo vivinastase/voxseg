@@ -101,16 +101,22 @@ if __name__ == '__main__':
     else:
         params = {"frame_length": args.frame_length, "nfilt": args.nfilt, "winlen": args.winlen, "winstep": args.winstep}
     
+    
+    if args.speech_thresh is not None:
+        threshold = args.speech_thresh
+    elif threshold is None:
+        threshold = 0.5
 
     timestamp = datetime.now().strftime("%d-%b-%Y_%H:%M")
-    logfile = model_name + "__main__" + timestamp + ".log"
+    logfile = model_name + "__main__thrsh_" + str(threshold) + "_" + timestamp + ".log"
     logging.basicConfig(filename=logfile, filemode='w', level=logging.DEBUG)  
 
     logging.info("_______\nmain.py {}\n__________\n".format(args))
     logging.info("\nmain.py {}\n".format(args))           
     logging.info("Config info: {}\n".format(config_info))
 
-    
+
+    '''    
     ## the command line parameter has precedence over what is in the config file
     if args.speech_thresh is not None:
         if 'best_threshold' in config_info.keys():
@@ -119,7 +125,7 @@ if __name__ == '__main__':
     elif threshold is None:
         logging.info("Threshold value not provided. Setting to 0.5")
         threshold = 0.5
-    
+    '''
 
     if args.model_path is not None:
         model_name = os.path.splitext(args.model_path)[0]

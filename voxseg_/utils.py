@@ -40,12 +40,13 @@ def load(path: str) -> pd.DataFrame:
     return pd.read_hdf(path)
 
 
-def process_data_dir(path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def process_data_dir(path: str, params, mode: str='train') -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     '''Function for processing Kaldi-style data directory containing wav.scp,
     segments (optional), and utt2spk (optional).
 
     Args:
         path: The path to the data directory.
+        params: sound processing parameters -- used to extend slightly each segment, such that in training we can have frames that overlap segment boundaries (if most of the segment is part of a vocalization, it's label will be 1, if not, it will be 0)
 
     Returns:
         A tuple of pd.DataFrame in the format (wav_scp, segments, utt2spk), where
@@ -74,6 +75,19 @@ def process_data_dir(path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFram
         segments = read_data_file(f'{path}/segments')
         segments.columns = ['utterance-id', 'recording-id', 'start', 'end']
         segments[['start', 'end']] = segments[['start', 'end']].astype(float)
+        
+        '''
+        ## extend the segments that are shorter than what is necessary to make a frame of the given frame length
+        if mode != 'eval':
+            wav_lens = dict()
+            for _, row in wav_scp.iterrows():        
+                rate, signal = wavfile.read(row['extended filename'])
+                wav_lens[row['recording-id']] = len(signal)/rate
+
+            min_len = (params['frame_length']-1) * params['winstep'] + params['winlen']            
+            segments[['start','end']] = segments.apply(lambda x: _change_ends(x, min_len, wav_lens), axis=1)
+        '''
+
     
     if 'utt2spk' not in files:
         utt2spk = None
@@ -228,6 +242,14 @@ def time_distribute(data: np.ndarray, sequence_length: int, stride: int = None, 
 
 
 
+## adjust the segment boundaries so all segments have at least a given min length, but make sure the new ends do not overshoot the length of the signals
+def _change_ends(row, min_len, wav_lens):
+
+    ## if the segment is too close to the beginning or the end to be extended symmetrically, maybe I should extend it asymetrically ... 
+    if row['end'] - row['start'] < min_len:    
+        return pd.Series({'start':max(0, row['start']-min_len/2), 'end': min(row['end']+min_len/2, wav_lens[row['recording-id']])})
+        
+    return row[['start','end']]
 
 
 def get_threshold(y_pred, y_true):

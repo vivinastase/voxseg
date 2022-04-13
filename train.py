@@ -9,10 +9,8 @@ import json
 from datetime import datetime
 import logging
 
-import voxseg.prep_labels
-import voxseg.evaluate
-import voxseg.extract_feats
-import voxseg.run_cnnlstm
+from voxseg_ import prep_labels, evaluate, extract_feats, run_cnnlstm, utils
+#import prep_labels, evaluate, extract_feats, run_cnnlstm, utils
 
 import numpy as np
 import pandas as pd
@@ -20,8 +18,11 @@ import argparse
 
 import tensorflow as tf
 
-from tensorflow.keras import utils, models, layers, metrics
+from tensorflow.keras import models, layers, metrics
 from tensorflow.keras.callbacks import ModelCheckpoint
+
+np.random.seed(1)
+#tf.random.set_seed(2)
 
 '''
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -55,7 +56,8 @@ class CNN2LSTM(models.Sequential):
         d = min(5, frame_length-1)  ## for very small frame lengths, a 5x5 filter in the first layer is too big
         
         self.model = models.Sequential()
-        self.model.add(layers.TimeDistributed(layers.Conv2D(64, (d, d), activation='elu'), input_shape=(None, self.params['nfilt'], frame_length, 1)))
+        #self.model.add(layers.TimeDistributed(layers.Conv2D(64, (d, d), activation='elu'), input_shape=(None, self.params['nfilt'], frame_length, 1)))      
+        self.model.add(layers.TimeDistributed(layers.Conv2D(64, (3, 3), activation='elu'), input_shape=(None, self.params['nfilt'], frame_length, 1)))      
         self.model.add(layers.TimeDistributed(layers.MaxPooling2D((2,2))))
 
         ## this is to adjust the architecture, because for lower frame lengths the signal cannot pass through multiple conv. layers        
@@ -70,9 +72,15 @@ class CNN2LSTM(models.Sequential):
         self.model.add(layers.TimeDistributed(layers.Flatten()))
         self.model.add(layers.TimeDistributed(layers.Dense(128, activation='elu')))
         self.model.add(layers.Dropout(0.5))
-        self.model.add(layers.Bidirectional(layers.LSTM(128, return_sequences=True)))
-        self.model.add(layers.Dropout(0.5))
+
+        #self.model.add(layers.Bidirectional(layers.LSTM(128, return_sequences=True)))        
+        self.model.add(layers.Bidirectional(layers.LSTM(64, return_sequences=True)))
+        
+        #self.model.add(layers.Dropout(0.5))
         self.model.add(layers.TimeDistributed(layers.Dense(output_layer_width, activation='softmax')))
+
+        logging.info(self.model.summary())
+
         #self.compile(
         self.model.compile(
                     optimizer='adam',
@@ -82,6 +90,7 @@ class CNN2LSTM(models.Sequential):
                              #tf.keras.metrics.BinaryAccuracy()
                              #, tfa.metrics.F1Score(num_classes=2, threshold=0.5)
                              , tf.keras.metrics.Recall()
+                             , tf.keras.metrics.Precision()
                              , tf.keras.metrics.AUC(num_thresholds=10)
                              ])
 
@@ -104,7 +113,14 @@ def train_model(model, x_train, y_train, validation_split, x_dev=None, y_dev=Non
 
 #    winlen = 0.01  ##0.004 ## for the "resolution" of the evaluation
 def test_model(model, data_dir, out_dir, eval_dir, params, speech_thresh = 0.5, speech_w_music_thresh = 0.5, filt = 1, res = 0.01):
-        
+ 
+    res = params['winlen']
+                
+    logging.info("\nTesting ...")
+    logging.info("\tevaluation resolution: {}".format(res))
+    logging.info("\tvocalization threshold: {}\n".format(speech_thresh))        
+
+    '''           
     (rate, data) = voxseg.extract_feats.prep_data(data_dir, mode="test")
     feats = voxseg.extract_feats.extract(data, params, rate)
     feats = voxseg.utils.resegment(feats, rate)  ## because when processing an entire file, we may get an OOM error at prediction time 
@@ -121,7 +137,41 @@ def test_model(model, data_dir, out_dir, eval_dir, params, speech_thresh = 0.5, 
         _, sys_segs, _ = voxseg.utils.process_data_dir(out_dir)
         _, ref_segs, _ = voxseg.utils.process_data_dir(eval_dir)
         voxseg.evaluate.score(wav_scp, sys_segs, ref_segs, wav_segs, res)   ##frame_length)
+        voxseg.evaluate.score_2(wav_scp, sys_segs, ref_segs, wav_segs, res)   ##frame_length)
         voxseg.evaluate.score_syllables(wav_scp, sys_segs, ref_segs, params['winlen'])
+    '''
+
+    (rate, data) = extract_feats.prep_data(data_dir, params, mode="test")
+    feats = extract_feats.extract(data, params, rate)
+    feats = utils.resegment(feats, rate)  ## because when processing an entire file, we may get an OOM error at prediction time 
+    feats = extract_feats.normalize(feats)
+        
+    targets = run_cnnlstm.predict_targets(model, feats)
+    
+    thresh_set = set([i/10 for i in range(1,10)])
+    thresh_set.add(speech_thresh)
+        
+    for thresh in sorted(thresh_set):
+        logging.info("\n____________________________________________________\n\nGenerating predictions for threshold {}\n".format(thresh))
+        endpoints = run_cnnlstm.decode(targets, thresh, speech_w_music_thresh, filt, 
+                                              frame_length = utils.get_interval_length(rate, params)/rate, 
+                                              rate = rate)  ###frame_length)
+        
+        if not endpoints.empty:
+            run_cnnlstm.to_data_dir(endpoints, out_dir)
+            if eval_dir is not None:
+                wav_scp, wav_segs, _ = utils.process_data_dir(data_dir, params)
+                _, sys_segs, _ = utils.process_data_dir(out_dir, params)
+                _, ref_segs, _ = utils.process_data_dir(eval_dir, params, mode='eval')
+                evaluate.score(wav_scp, sys_segs, ref_segs, wav_segs, res)   ##frame_length)
+                evaluate.score_2(wav_scp, sys_segs, ref_segs, wav_segs, res)   ##frame_length)
+                evaluate.score_syllables(wav_scp, sys_segs, ref_segs, params['winlen'])
+        else:
+            logging.info("No positive instance predictions")
+            
+    logging.info("\n\n______________________\n")
+
+
 
 
 if __name__ == '__main__':
@@ -134,6 +184,10 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--validation_split', type=float,
                         help='a percetage of the training data to be used as a validation set, if an explicit validation \
                               set is not defined using -v')
+
+    parser.add_argument('-E', '--epochs', type=int, default=25,
+                        help='number of epochs')
+
     
     parser.add_argument('-f', '--frame_length', type=int, default=32,
                         help='the frame length to consider (originally was defaulted to 0.32 -- smaller values have an impact on the CNN architecture -- the information gets compressed quickly and it cannot pass through 3 layers')
@@ -204,36 +258,39 @@ if __name__ == '__main__':
         model_file_name = config_info['model']
 
     # Fetch data
-    (rate_train, data_train) = voxseg.prep_labels.prep_data(args.train_dir)
+    (rate_train, data_train) = prep_labels.prep_data(args.train_dir, params)
     if config_info['validation_dir']:
-        (rate_dev, data_dev) = voxseg.prep_labels.prep_data(config_info['validation_dir'])
+        (rate_dev, data_dev) = prep_labels.prep_data(config_info['validation_dir'], params)
 
     # Extract features
-    feats_train = voxseg.extract_feats.extract(data_train, params, rate_train)
-    feats_train = voxseg.extract_feats.normalize(feats_train)
-    voxseg.utils.print_feature_stats(feats_train,"Train")
+    feats_train = extract_feats.extract(data_train, params, rate_train)
+    feats_train = extract_feats.normalize(feats_train)
+    utils.print_feature_stats(feats_train,"Train")
     
     if config_info['validation_dir']:
-        feats_dev = voxseg.extract_feats.extract(data_dev, params, rate_dev)
-        feats_dev = voxseg.extract_feats.normalize(feats_dev)
-        voxseg.utils.print_feature_stats(feats_dev,"Dev")
+        feats_dev = extract_feats.extract(data_dev, params, rate_dev)
+        feats_dev = extract_feats.normalize(feats_dev)
+        utils.print_feature_stats(feats_dev,"Dev")
 
     # Extract labels
-    labels_train = voxseg.prep_labels.get_labels(data_train, params, rate_train)
-    labels_train['labels'] = voxseg.prep_labels.one_hot(labels_train['labels'])
+    labels_train = prep_labels.get_labels(data_train, params, rate_train)
+    labels_train['labels'] = prep_labels.one_hot(labels_train['labels'])
     if args.validation_dir:
-        labels_dev = voxseg.prep_labels.get_labels(data_dev, params, rate_dev)
-        labels_dev['labels'] = voxseg.prep_labels.one_hot(labels_dev['labels'])
+        labels_dev = prep_labels.get_labels(data_dev, params, rate_dev)
+        labels_dev['labels'] = prep_labels.one_hot(labels_dev['labels'])
 
 
-    seq_len = int(config_info["frame_length"] /2)
+    #seq_len = int(config_info["frame_length"] /2)
+    #seq_len = params['frame_length']
+    seq_len = 20
+    params['seq_len'] = seq_len
 
     # Train model
-    X = voxseg.utils.time_distribute(np.vstack(feats_train['normalized-features']), seq_len)
-    y = voxseg.utils.time_distribute(np.vstack(labels_train['labels']), seq_len)
+    X = utils.time_distribute(np.vstack(feats_train['normalized-features']), seq_len)
+    y = utils.time_distribute(np.vstack(labels_train['labels']), seq_len)
     if args.validation_dir:
-        X_dev = voxseg.utils.time_distribute(np.vstack(feats_dev['normalized-features']), seq_len)
-        y_dev = voxseg.utils.time_distribute(np.vstack(labels_dev['labels']), seq_len)
+        X_dev = utils.time_distribute(np.vstack(feats_dev['normalized-features']), seq_len)
+        y_dev = utils.time_distribute(np.vstack(labels_dev['labels']), seq_len)
     else:
         X_dev = None
         y_dev = None
@@ -245,28 +302,45 @@ if __name__ == '__main__':
                                  #mode='min', 
                                  #monitor='val_recall',
                                  #mode='max',
-                                 monitor='val_auc',
+                                 monitor='val_precision',
                                  mode='max',
+                                 #monitor='val_auc',
+                                 #mode='max',
+                                 #monitor='val_accuracy',
+                                 #mode='max',
                                  save_best_only=True)
 
     voxseg_model = CNN2LSTM(y.shape[-1], params)
+
     
     if y.shape[-1] == 2 or y.shape[-1] == 4:
-        hist = train_model(voxseg_model.model, X, y, config_info['validation_split'], X_dev, y_dev, callbacks=[checkpoint])
+        hist = train_model(voxseg_model.model, X, y, config_info['validation_split'], X_dev, y_dev, callbacks=[checkpoint], epochs=args.epochs)
 
         df = pd.DataFrame(hist.history)
         df.index.name = 'epoch'
         #df.to_csv(f'{args.out_dir}/{args.model_name}_training_log.csv')
         logging.info("Training results: \n{}".format(df))
+
+        if X_dev is not None:
+            config_info['best_threshold'] = round(utils.get_threshold(voxseg_model.model.predict(X_dev[:,:,:,:,np.newaxis]), y_dev),2)
+        else:
+            config_info['best_threshold'] = round(utils.get_threshold(voxseg_model.model.predict(X[:,:,:,:,np.newaxis]), y),2)
+    
     else:
         print(f'ERROR: Number of classes {y.shape[-1]} is not equal to 2 or 4, see README for more info on using this training script.')
-        
+
+
+#    logging.info("Model summary:\n{}\n".format(voxseg_model.summary()))
+    
+                
+    with open(config_file, "w") as json_file:
+        print("Writing config info to file {}: {}".format(config_file, config_info))
+        json.dump(config_info, json_file)
+
     
     if config_info['test_dir'] != '':
         if config_info['eval_dir'] != '':
-            test_model(voxseg_model.model, config_info['test_dir'], config_info['test_dir'], config_info['eval_dir'], params, res = config_info['eval_res'])
+            test_model(voxseg_model.model, config_info['test_dir'], config_info['test_dir']+"-predictions", config_info['eval_dir'], params, res = config_info['eval_res'], speech_thresh=config_info['best_threshold'])
         else:
-            test_model(voxseg_model.model, config_info['test_dir'], config_info['test_dir'], config_info['test_dir'], params, res = config_info['eval_res'])
+            test_model(voxseg_model.model, config_info['test_dir'], config_info['test_dir']+"-predictions", config_info['test_dir'], params, res = config_info['eval_res'], speech_thresh=config_info['best_threshold'])
             
-
-    

@@ -31,6 +31,8 @@ def get_annotations(file, ext, sep):
         else:
 #            print("Reading csv annotations: ")
             annots = pd.read_csv(file, sep=sep)
+            if "Duration" in annots.columns:
+                annots = convert_annotations(annots)
 #            print("header: {}".format(annots.columns))
             annots = annots.rename(columns={'name':'call_type'})            
     else:
@@ -97,6 +99,20 @@ def transform_annotations(N, annots, samplingFrequency):
     return labels
 
 
+def convert_annotations(annots):
+    
+    starts = []
+    ends = []
+    call_types = []
+    
+    for _, row in annots.iterrows():
+        starts.append(convert_time(row['Start']))
+        ends.append(convert_time(row['Start']) + convert_time(row['Duration']))
+        call_types.append("voc")
+                
+    new_annots = {'start': starts, 'end': ends, 'call_type': call_types}
+    return pd.DataFrame(new_annots)
+
 
 def get_annot_info(annots_row):
 
@@ -114,10 +130,10 @@ def get_time(start, duration):
 
 def convert_time(time_str):
 
-    if int(time_str):
+    if re.match(r"^\d+$", time_str):
         return int(time_str)
     
-    if float(time_str):
+    if re.match(r"^\d+\.\d+$",time_str):
         return float(time_str)
     
     m = re.match(r'^(\d+)\:(\d+)\.(\d+)$', time_str)
@@ -126,7 +142,3 @@ def convert_time(time_str):
     
     print("I don't recognize the file format: {}".format(time_str))
     return 0
-
-
-if __name__ == '__main__':
-    pass

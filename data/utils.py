@@ -52,56 +52,35 @@ def make_voxseg(files_dir, name, data_path, split, wav_ext, annot_ext, sep = "\t
 
     files = glob.glob(files_dir + '/*.' + wav_ext)
     print("Processing {} files".format(len(files)))
+    print("{}".format(files))
     
     if len(glob.glob(files_dir + "/*." + annot_ext)) == 0:
         #no annotations file, make a directory with test data only
-        make_voxseg_data(files, list(range(len(files))), data_path, name + ".test", wav_ext, annot_ext, sep, "test")
+        make_voxseg_data(files, data_path, name + ".test", wav_ext, annot_ext, sep, "test")
 
     else:
+
+        splits = ['train', 'test']
     
-        if split != "none":
-            #data_split = loadmat(split)  ## there is something not clear about the indices in this mat file
-            data_split = get_data_split(split, files)
+        if split is None:
+            data_split = make_default_split(files)
+        elif split == "none":
+            data_split = {'train': files, 'test': files}
         else:
-            data_split = {'i_train': [list(range(len(files)))], 'i_test': [list(range(len(files)))]}
+            data_split = read_data_split(files_dir, split)
         
         print("Processing {} wav files".format(len(files)))
-        splits = ['train', 'valid', 'test']
         
         for x in splits:
-            k = 'i_' + x
-            if k in data_split.keys():
-                make_voxseg_data(files, data_split[k][0], data_path, name + "." + x, wav_ext, annot_ext, sep, x)
+            if x in data_split.keys():
+                make_voxseg_data(data_split[x], data_path, name + "." + x, wav_ext, annot_ext, sep, x)
         
         ## make a complete version of the test dir, for evaluation purposes
-        make_voxseg_data(files, data_split['i_test'][0], data_path, name + ".test_eval", wav_ext, annot_ext, sep, "test")
+        make_voxseg_data(data_split['test'], data_path, name + ".test_eval", wav_ext, annot_ext, sep, "test")
+         
      
      
-def get_data_split(files):
-    
-    N = len(files)
-    split = [0.75, 0.05, 0.2]
-    
-    ind_list = []
-    for i in range(len(split)):
-        ind_list.extend([i] * int(N * split[i]))
-        
-    if len(ind_list) < N:
-        ind_list.extend([0] * (N-len(ind_list)))
-        
-    random.shuffle(ind_list)
-    
-    split_map = {'i_train': 0, 'i_valid': 1, 'i_test': 2}
-    data_split = dict()
-    for k in split_map.keys():
-        data_split[k] = [[i for i, x in enumerate(ind_list) if x == split_map[k]]]
-        print("\t{} => {} files".format(k, len(data_split[k])))
-        
-    return data_split
-    
-     
-     
-def make_voxseg_data(files, indices, data_path, name, wav_ext, annot_ext, sep, split_type):
+def make_voxseg_data(files, data_path, name, wav_ext, annot_ext, sep, split_type):
      
     data_path += "/" + name + "/"
     if not os.path.exists(data_path):
@@ -116,29 +95,45 @@ def make_voxseg_data(files, indices, data_path, name, wav_ext, annot_ext, sep, s
     
     print("Reformatting data for voxseg ...")
     print("\toutputs will go to:\n\t{}\n\t{}\n\t{}\n".format(wav_scp, segments, utt2spk))
-    print("Files: {}".format(files))
-    print("Indices: {}".format(indices))
+    print("Files ({}): {}".format(len(files), files))
             
-    for i in indices:
+    for f in files:
         #file_stem = os.path.splitext(files[i-1])[0]  ## doesn't work if a directory contains a "."
-        file_path = "/".join(files[i-1].split("/")[:-1])
-        file_stem = file_path + "/" + ".".join(files[i-1].split("/")[-1].split(".")[:-1])
+        print("\nFile {}".format(f))
+        file_path = "/".join(f.split("/")[:-1])
+        file_stem = file_path + "/" + ".".join(f.split("/")[-1].split(".")[:-1])
         
         wav_file = file_stem + "." + wav_ext
         annot_file = file_stem + "." + annot_ext
 
         rec_id = make_id("rec", n)
-        wav_scp.write("{} {}\n".format(rec_id,wav_file))
         
-        n += 1
-                
         annots = annotations_utils.get_annotations(annot_file, annot_ext, sep)
-        #segs_info = os.popen("wc " + annot_file).read()
-        print("{} (i={}) Processing file {} ({}) -- {} segments".format(n, i, wav_file, rec_id, len(annots))) 
-        
-        nr_segs += len(annots)
-        
-        process_file4voxseg(annots, segments, utt2spk, split_type == "test", rec_id)
+        print("{} Processing file {} ({}) -- {} segments".format(n, wav_file, rec_id, len(annots))) 
+
+        #''''        
+        #if training, skip annotated files without positive instances
+        if len(annots) == 0:
+            if split_type == "test":
+                wav_scp.write("{} {}\n".format(rec_id,wav_file))
+                n += 1
+        else:
+            wav_scp.write("{} {}\n".format(rec_id,wav_file))
+            n += 1
+
+            nr_segs += len(annots)            
+            process_file4voxseg(wav_file, annots, segments, utt2spk, split_type == "test", rec_id)
+        #'''    
+
+        '''
+        ## include even files with no positive annotations in training
+        wav_scp.write("{} {}\n".format(rec_id,wav_file))
+        n += 1
+
+        nr_segs += len(annots)            
+        process_file4voxseg(wav_file, annots, segments, utt2spk, split_type == "test", rec_id)
+        '''
+
                     
     wav_scp.close()
     segments.close()
@@ -159,68 +154,52 @@ def make_voxseg_data(files, indices, data_path, name, wav_ext, annot_ext, sep, s
         
     print("Number of segments for {} split: {}".format(split_type, nr_segs))
     
-    
-'''
-  the zebra finch data is exported from flatclust, 
-  and there would be one directory containing all recording files, and one file with all annotations
-'''
-def make_voxseg_zf(files_dir, name, data_path, annot_file):
-    
-    print("\nReading information from annotations file {}".format(annot_file))
 
-    (train_annots, test_annots) = split_annots(annot_file)
-    
-    print("\nExtracting training data from files: {}".format(train_annots['file'].unique().tolist()))
-    print("\nExtracting test data from files: {}".format(test_annots['file'].unique().tolist()))
-    
-    write_voxseg_zf(files_dir, name + ".train", data_path, train_annots, False)
-    write_voxseg_zf(files_dir, name + ".test", data_path, test_annots, True)
-    
 
-def write_voxseg_zf(files_dir, name, data_path, annots, isTest):
+def make_default_split(files):
+    
+    split_info = {'train': 0.9, 'test': 0.1}
 
-    data_path += "/" + name + "/"
-    if not os.path.exists(data_path):
-        os.makedirs(data_path)
-
-    wav_scp  = open(data_path + "/wav.scp", "w")
-    segments = open(data_path + "/segments", "w")
-    utt2spk  = open(data_path + "/utt2spk", "w") 
+    ind_list = []
+    N = len(files)
     
-    print("Reformatting data for voxseg ...")
-    print("\toutputs will go to:\n\t{}\n\t{}\n\t{}\n".format(wav_scp, segments, utt2spk))
-    
-    rec_ids = dict()
-        
-    n_utt = 0
-    prev_end = 0
-    
-    print("Processing {} instances ... ".format(len(annots)))
-    
-    for _i, (file, onset, duration, _cluster_id) in annots.iterrows():
-          
-        wav_file = files_dir + "/" + file
-        
-        (rec_id, n_utt, prev_end) = get_rec_id(wav_file, rec_ids, wav_scp, n_utt, prev_end)
-        samplingRate = getSamplingRate(wav_file)
-        
-        begin = onset/samplingRate
-        end = (onset + duration)/samplingRate
-        
-        if not isTest:
-            add_instance(rec_id, n_utt, segments, utt2spk, prev_end, begin, "non_speech")
-            n_utt +=1
+    for k in split_info.keys():
+        if N * split_info[k] < 1:
+            ind_list.extend([k])
+        else:
+            ind_list.extend([k] * int(N * split_info[k]))
             
-        add_instance(rec_id, n_utt, segments, utt2spk, begin, end, "speech")   ##call_type)
-        prev_end = end
+    if len(ind_list) < N:
+        ind_list.extend(['train'] * (N-len(ind_list)))
+    elif len(ind_list) > N:
+        ind_list = ind_list[-N:]
+        
+    random.shuffle(ind_list)
 
-        n_utt += 1
-                   
-    wav_scp.close()
-    segments.close()
-    utt2spk.close()    
-
-
+    data_split = dict()
+    for k in split_info.keys():
+        data_split[k] = [files[i] for i,x in enumerate(ind_list) if x==k]
+        
+    return data_split
+    
+    
+    
+# the files are listed in the split file without path
+def read_data_split(files_dir, split):
+    
+    data_split = dict()
+    df = pd.read_csv(split, sep="\t", header=None)
+    for x in df[1].unique():
+         data_split[x] = df.loc[df[1] == x, 0].tolist()
+         data_split[x] = [files_dir + "/" + f for f in data_split[x]]
+        
+    print("Data split pandas frame:\n{}\n".format(df)) 
+    print("Read data split: {}".format(data_split))
+    
+    return data_split
+    
+      
+ 
 
 def get_rec_id(wav_file, rec_ids, wav_scp, n_utt, prev_end):
     
@@ -237,10 +216,13 @@ def get_rec_id(wav_file, rec_ids, wav_scp, n_utt, prev_end):
     
     
     
-def process_file4voxseg(annots, segments, utt2spk, isTest, rec_id):   
+def process_file4voxseg(wav_file, annots, segments, utt2spk, isTest, rec_id):   
     
     n_utt = 0
     prev_end = 0
+    
+    sig_len = get_file_length(wav_file)
+    
     for k, row in annots.iterrows():  
         
         (begin, end, call_type) = annotations_utils.get_annot_info(row)
@@ -251,7 +233,7 @@ def process_file4voxseg(annots, segments, utt2spk, isTest, rec_id):
         
             begin = max(begin, prev_end)
         
-            if not isTest and begin > prev_end:
+            if not isTest and (begin > prev_end) and (prev_end > 0):
                 add_instance(rec_id, n_utt, segments, utt2spk, prev_end, begin, "non_speech")
                 n_utt +=1
                 
@@ -259,9 +241,11 @@ def process_file4voxseg(annots, segments, utt2spk, isTest, rec_id):
             prev_end = end
 
             n_utt += 1
-
     
-
+#    if prev_end < sig_len and not isTest:
+#        add_instance(rec_id, n_utt, segments, utt2spk, prev_end, sig_len, "non_speech")
+    
+    
 
 
 def process_file(file_stem, wav_ext, annot_ext, annots = None):
@@ -386,37 +370,6 @@ def get_annot_file(files_dir, ext):
         
     return files[0]
 
-'''
-  split the annotations exported form flatclust into train and test
-'''
-def split_annots(annot_file):
-
-    split = [0.8, 0.2]  ## approximate annotations split ratio
-    annots = pd.read_csv(annot_file, sep=',')
-    
-    instances = annots["file"].tolist()
-    n_inst = len(instances)
-
-    (train_files, test_files) = split_files(collections.Counter(instances), n_inst * split[0])
-
-    return(annots[annots["file"].isin(train_files)], 
-           annots[annots["file"].isin(test_files)])
-
-
-def split_files(counts, max_inst):
-    
-    train_files = []
-    test_files = []
-    
-    n = 0
-    for f in counts.keys():
-        if counts[f] + n > max_inst:
-            test_files.append(f)
-        else:
-            train_files.append(f)
-        n += counts[f]
-        
-    return (train_files, test_files)
         
 
 def getSamplingRate(wav_file):
@@ -427,9 +380,16 @@ def getSamplingRate(wav_file):
     return samplingFrequency
 
 
-def write_annots(annots, file, dir):
+def get_file_length(wav_file):
     
-    annots_file = os.path.splitext(dir + "/" + file)[0] + "_annotations.csv"
+    samplingFrequency, signalData = wavfile.read(wav_file)
+    return len(signalData)/samplingFrequency
+
+
+
+def write_annots(annots, file, dir, extension = ".csv"):
+    
+    annots_file = os.path.splitext(dir + "/" + file)[0] + extension
     annots.to_csv(annots_file, index=False)
 
 

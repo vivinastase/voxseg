@@ -99,12 +99,13 @@ def one_hot(col: pd.Series) -> pd.Series:
     return col.apply(lambda x: np.array([label_map[i] for i in x]))
 
 
-def prep_data(path: str):
+def prep_data(path: str, params):
     '''Function for creating pd.DataFrame containing dataset information specified by Kaldi-style
     data directory containing 'wav.spc', 'segments' and 'utt2spk'.
 
     Args:
         data_dir: The path to the data directory.
+        params: signal processing parameters
 
     Returns:
         A pd.DataFrame of dataset information. For example:
@@ -115,7 +116,7 @@ def prep_data(path: str):
         2   rec_01        ~/Documents/test_01.wav  utt_02        135    163  speech      [25, 32, 54...
     '''
 
-    wav_scp, segments, utt2spk = utils.process_data_dir(path)
+    wav_scp, segments, utt2spk = utils.process_data_dir(path, params)
     assert utt2spk is not None and segments is not None, \
         'ERROR: Data directory needs to contain \'segments\' and \'utt2spk\'\
             containing label information.'

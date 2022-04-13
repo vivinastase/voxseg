@@ -8,11 +8,13 @@ import json
 import logging
 from datetime import datetime
 
-import voxseg.prep_labels
-import voxseg.evaluate
-import voxseg.extract_feats
-import voxseg.run_cnnlstm
-import voxseg.utils
+#import voxseg_.prep_labels
+#import voxseg_.evaluate
+#import voxseg_.extract_feats
+#import voxseg_.run_cnnlstm
+#import voxseg_.utils
+
+import prep_labels, evaluate, extract_feats, run_cnnlstm, utils
 
 import numpy as np
 import pandas as pd

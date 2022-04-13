@@ -90,7 +90,6 @@ def decode(targets: pd.DataFrame, speech_thresh: float = 0.5, speech_w_music_thr
                                                             
     if targets.empty:
         print("No positive targets predicted. Exiting")
-        sys.exit()
     else:
         print("Targets is not empty, continuing with the decoding.")
         
@@ -128,7 +127,7 @@ def to_data_dir(endpoints: pd.DataFrame, out_dir: str) -> None:
     endpoints[['recording-id', 'extended filename']].drop_duplicates().to_csv(
                     f'{out_dir}/wav.scp',sep=' ', index=False, header=False)
 
-    pd.concat([endpoints[['utterance-id', 'recording-id']], endpoints[['start', 'end']].astype(float).round(3)],
+    pd.concat([endpoints[['utterance-id', 'recording-id']], endpoints[['start', 'end']].astype(float).round(5)],
                     axis=1).to_csv(f'{out_dir}/segments', sep=' ', index=False, header=False)
 
 
@@ -188,8 +187,8 @@ def _targets_to_endpoints(targets: np.ndarray, endpoints: np.ndarray, frame_leng
         t = utils.compute_time(endpoints[n][1]-endpoints[0][0], frame_length, rate)
         ends.append(t)
     
-    starts = np.around(np.array([i * frame_length for i in starts]), 3)
-    ends = np.around(np.array([i * frame_length for i in ends]), 3)
+    starts = np.around(np.array([i * frame_length for i in starts]), 5)
+    ends = np.around(np.array([i * frame_length for i in ends]), 5)
         
     return pd.DataFrame({'start': [starts],'end': [ends]})
 
