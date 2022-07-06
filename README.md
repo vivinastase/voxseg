@@ -1,6 +1,6 @@
 # Voxseg
 
-This is a parameterized version of Voxseg, whose original version is here:
+This is a parameterized version of Voxseg (to allow for different frame lengths, sampling rates, etc.), whose original version is here:
 
 https://github.com/NickWilkinson37/voxseg.git
 
@@ -16,18 +16,6 @@ git clone [this repo]
 pip install ./voxseg
 ```
 In future, installation directly from the package manager will be supported.
-
-To test the installation run:
-```bash
-cd voxseg
-python -m unittest
-```
-The test will run the full VAD pipeline on two example audio files. This pipeline includes feature extraction, VAD and evaluation. The output should include the following*:
-- A progress bar monitoring the feature extraction process, followed by a DataFrame containing normalized-features and metadata.
-- A DataFrame containing model generated endpoints, indicating the starts and ends of discovered speech utterances.
-- A confusion matrix of speech vs non-speech, with the following values: TPR 0.935, FPR 0.137, FNR 0.065, FPR 0.863
-
-*The order in which these outputs appear may vary.
 
 ## Data Preparation
 
@@ -124,7 +112,7 @@ It saves all the information, including trained model and its parameters, into a
 
 It would evaluate the performance on the data in the eval_directory, and predict annotations for the test data.
 
-It will build an input to the CNN consisting of 32 (frame length) vectors of dimension 128 (nfilt). 128 is the numbe rof filters used by logfbank. The length of the segment of the signal at which it looks to build this representation is computed based on the frame length, and the winlen and winstep parameters (default values 0.025 and 0.01 for human speech, but they can be explicitly given)
+It will build an input to the CNN consisting of 32 (frame length) vectors of dimension 128 (nfilt). 128 is the number of filters used by logfbank. The length of the segment of the signal at which it looks to build this representation is computed based on the frame length, and the winlen and winstep parameters (default values 0.025 and 0.01 for human speech, but they can be explicitly given)
 It uses 0.1 of the training data as development (validation) data.
 
 To explore the available flags for changing settings call for either train.py or train_mat.py:
@@ -142,7 +130,7 @@ python3.8 train.py -h
 
   * -v VALIDATION_DIR, --validation_dir VALIDATION_DIR: a path to a Kaldi-style data directory containting 'wav.scp', 'utt2spk' and 'segments'
   * -s VALIDATION_SPLIT, --validation_split VALIDATION_SPLIT: a percetage of the training data to be used as a validation set, if an explicit validation set is not defined using -v
-  * -f FRAME_LENGTH, --frame_length FRAME_LENGTH: the frame length to consider (originally was defaulted to 0.32 -- smaller values have an impact on the CNN architecture -- the information gets compressed quickly and it cannot pass through 3 layers
+  * -f FRAME_LENGTH, --frame_length FRAME_LENGTH: the frame length to consider (originally was defaulted to 32 -- smaller values have an impact on the CNN architecture -- the information gets compressed quickly and it cannot pass through the 3 original layers of the CNN. This is now changed, and the CNN will have at most 3 layers, depending on this parameter)
   * -n NFILT, --nfilt NFILT: the number of filters to extract from the signal data -- will be one of the dimensions of the input to the CNN (nfilt x frame-length (as array length))
   * -l WINLEN, --winlen WINLEN: the window length parameter for extracting features from the signal data with logfbank
   * -w WINSTEP, --winstep WINSTEP: the window step parameter for extracting features with logfbank (which determines how much the windows from which features are extracted overlap)
@@ -187,7 +175,7 @@ python3.8 voxseg/main.py -h
   If the config file is provided, the next 5 arguments are not necessary (actually, should not be provided, because the frame length, nfilt, winlen and winstep parameters are linked to the trained model)
 
   *  -M MODEL_PATH, --model_path MODEL_PATH: a path to a trained vad model saved as in .h5 format, overrides default pretrained model
-  *  -f FRAME_LENGTH, --frame_length FRAME_LENGTH: the frame length to consider (originally was defaulted to 0.32 -- smaller values have an impact on the CNN architecture -- the information gets compressed quickly and it cannot pass through 3 layers
+  *  -f FRAME_LENGTH, --frame_length FRAME_LENGTH: the frame length to consider (originally was defaulted to 32 -- smaller values have an impact on the CNN architecture -- the information gets compressed quickly and it cannot pass through the 3 original layers of the CNN. This is now changed, and the CNN will have at most 3 layers, depending on this parameter)
   *  -n NFILT, --nfilt NFILT: the number of filters to extract from the signal data -- will be one of the dimensions of the input to the CNN (nfilt x frame-length (as array length))
   *  -l WINLEN, --winlen WINLEN: the window length parameter for extracting features from the signal data with logfbank
   *  -w WINSTEP, --winstep WINSTEP: the window step parameter for extracting features with logfbank (which determines how much the windows from which features are extracted overlap)
